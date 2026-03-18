@@ -234,19 +234,6 @@ The AI interaction loop:
 
 brosearch is inspired by and builds on the ideas from **[bb-browser](https://github.com/epiral/bb-browser)** — a brilliant project that pioneered the "your browser is the API" concept for AI agents.
 
-**Differences from bb-browser:**
-
-| | bb-browser | brosearch |
-|---|---|---|
-| Distribution | npm package | Clone & run |
-| MCP server | ✅ | ❌ (removed) |
-| Adapter community | 36 platforms, 103 commands (bb-sites) | 17 platforms built-in + auto-generate |
-| Search engines | ❌ | ✅ (Google/Bing/Brave/DDG/Wikipedia) |
-| Jina Reader fallback | ❌ | ✅ |
-| Adapter auto-generation | Semi-auto (capture → AI) | **Fully auto** (AI navigates + interacts) |
-| Language | TypeScript CLI | Python CLI + TypeScript daemon |
-| WSL support | Partial | ✅ Auto host detection |
-
 brosearch is a lighter, self-contained version optimized for OpenClaw / Python-based agent setups, with a focus on Chinese platforms and fully automated adapter generation.
 
 ---
