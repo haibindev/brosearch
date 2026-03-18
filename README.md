@@ -250,10 +250,6 @@ brosearch is a lighter, self-contained version optimized for OpenClaw / Python-b
 
 **[haibindev.github.io](https://haibindev.github.io/)** — personal site & blog
 
-WeChat public account: **海滨code**
-
-<img src="wechat-qr.jpg" alt="WeChat QR code" width="160"/>
-
 ---
 
 ## License
