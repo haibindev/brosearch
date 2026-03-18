@@ -246,6 +246,16 @@ brosearch is a lighter, self-contained version optimized for OpenClaw / Python-b
 
 ---
 
+## About
+
+**[haibindev.github.io](https://haibindev.github.io/)** — personal site & blog
+
+WeChat public account: **海滨code**
+
+<img src="wechat-qr.jpg" alt="WeChat QR code" width="160"/>
+
+---
+
 ## License
 
 MIT © [haibindev](https://github.com/haibindev)
@@ -270,6 +280,10 @@ MIT © [haibindev](https://github.com/haibindev)
 `auto-generate` 命令：AI 自动打开页面 → Accessibility Tree 分析 → 交互（点击/滚动/输入）→ 抓取 API → 生成适配器 JS。
 
 灵感来源和致谢：[bb-browser](https://github.com/epiral/bb-browser)。
+
+个人主页：**[haibindev.github.io](https://haibindev.github.io/)**　微信公众号：**海滨code**
+
+<img src="wechat-qr.jpg" alt="公众号二维码" width="160"/>
 
 ---
 
