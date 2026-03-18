@@ -2,8 +2,7 @@
 
 # brosearch
 
-**Your logged-in Chrome browser as a structured data API.**
-**Zero re-authentication. No scraping detection. Real sessions.**
+**Your browser is the API. Built for AI agents.**
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](packages/extension/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](packages/daemon/)
@@ -11,298 +10,252 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/haibindev/brosearch?style=social)](https://github.com/haibindev/brosearch)
 
-[中文说明](#中文说明) · [Report Bug](https://github.com/haibindev/brosearch/issues) · [Request Feature](https://github.com/haibindev/brosearch/issues)
-
-**If you find this useful, please consider giving it a ⭐ Star — it helps a lot!**
+[中文说明](#中文说明) · [Report Bug](https://github.com/haibindev/brosearch/issues)
 
 </div>
 
 ---
 
-## Why brosearch?
+AI agents have access to files, terminals, and a handful of APIs with keys. But 99% of the internet requires a browser session.
 
-You've already logged into Twitter, Zhihu, Bilibili, and 10 other platforms. Getting data from them should be simple — but it isn't:
-
-- **Scraping** gets you blocked or rate-limited
-- **Official APIs** are paywalled, restricted, or simply don't exist
-- **Playwright/Puppeteer** opens a new browser instance — your session is gone, you need to log in again
-- **Cookies extraction** is fragile and expires constantly
-
-brosearch takes a different approach: **your existing Chrome session is the API**.
-
-1. Install the Chrome extension (loads in 30 seconds)
-2. Start the daemon on your machine
-3. Call `brosearch fetch zhihu/hot` — it runs JavaScript inside your real, logged-in Chrome tab
-4. Get back clean structured data, with no login, no tokens, no scraping
+**brosearch gives agents direct access to the web through your already-logged-in Chrome.** No API keys. No re-login. No scraping. The browser executes your session credentials, the same way you do it yourself.
 
 ```
-Layer 1: Chrome extension adapters  → Structured data from logged-in platforms
-Layer 2: HTTP search engines         → General web search (no Chrome needed)
-Layer 3: Jina Reader fallback        → Full text of any public page
+agent calls:  brosearch fetch zhihu/hot
+              → runs JS in your Chrome tab → returns clean JSON
 ```
 
-Each layer falls back to the next automatically. If you have Chrome open, you get the richest data. If not, you still get results.
+Three layers, automatic fallback:
 
-**Bonus:** `brosearch auto-generate` opens a page, uses AI to interact with it (click, scroll, type), captures the API calls, and writes a new adapter — fully automatically.
+```
+1. Chrome extension adapters   →  Logged-in platform data  (Twitter / Zhihu / Reddit / ...)
+2. HTTP search engines         →  General web search       (no Chrome needed)
+3. Jina Reader                 →  Full-text of any page    (last resort)
+```
 
 ---
 
-## Features
+## For AI Agents
 
-<table>
-<tr>
-<td width="50%">
+```bash
+# Cross-platform research in one session
+brosearch fetch arxiv/search query="retrieval augmented generation"
+brosearch fetch reddit/hot sub=MachineLearning
+brosearch fetch github/trending
+brosearch fetch stackoverflow/search query="RAG implementation"
+brosearch fetch zhihu/search query="RAG"
+brosearch fetch 36kr/newsflash
 
-### 🔌 Real Session, Zero Re-auth
-Runs JavaScript inside your existing Chrome tabs via CDP. Cookies, tokens, and login state are already there — brosearch just uses them. No credential management, no session files.
+# Six sources. Structured JSON. No browser tabs opened manually.
+```
 
-### 🤖 AI-Powered Adapter Generation
-Point `auto-generate` at any URL and it:
-1. Opens the page in Chrome
-2. Gets an Accessibility Tree snapshot
-3. Asks Claude to interact (click, scroll, type into search boxes)
-4. Captures the triggered API requests
-5. Generates a working adapter JS file
+```bash
+# Authenticated platform data (uses your existing login)
+brosearch fetch twitter/search query="Claude agent"
+brosearch fetch bilibili/hot
+brosearch fetch xueqiu/hot market=CN
+brosearch fetch weibo/hot-search
+brosearch fetch juejin/hot
 
-### 📡 Three-Layer Fallback
-Chrome extension adapters for rich authenticated data → HTTP search engines (Google/Bing/Brave/DDG) for general search → Jina Reader for full-page text extraction. Always returns something.
+# No token needed — your Chrome session is the credential.
+```
 
-</td>
-<td width="50%">
+```bash
+# Unknown platform? Generate an adapter automatically
+ANTHROPIC_API_KEY=sk-... brosearch auto-generate \
+  --url "https://news.ycombinator.com/show" \
+  --platform hn --command show
+# → AI opens the page, scrolls, captures API calls, writes adapter JS
+```
 
-### 🏗️ 8 Built-in Platforms
-Ready-to-use adapters for Twitter, Zhihu, Xiaohongshu, GitHub, HackerNews, V2EX, Bilibili, and Weibo. Three tiers of authentication: Cookie passthrough, Bearer/CSRF extraction, and Webpack module injection.
+---
 
-### 🖥️ WSL & Cross-Platform
-Daemon runs on Windows/macOS host, listens on `0.0.0.0:19824`. WSL automatically detects the host IP via `/etc/resolv.conf`. Override with `BROSEARCH_DAEMON` env var.
+## How It Works
 
-### 🔍 Console & Error Monitoring
-Captures `console.log`, `console.error`, and JS exceptions from any tab. Used by `auto-generate` to self-diagnose when adapter generation fails.
+```
+AI Agent (Claude Code / Cursor / any CLI)
+          │
+          │  Python CLI  (brosearch fetch / search / read / auto-generate)
+          ▼
+    ┌─────────────────────────────────────────────────────┐
+    │  Daemon  (Node.js, :19824)                          │
+    │                                                     │
+    │  Adapter Router ──── loads adapters/*.js            │
+    │       │                                             │
+    │  Extension Bridge ──── SSE ───────────────────────► │──► Chrome Extension
+    └─────────────────────────────────────────────────────┘           │
+                                                            chrome.debugger (CDP)
+                                                                       │
+                                                               ┌───────▼────────┐
+                                                               │  Your Chrome   │
+                                                               │  Real session  │
+                                                               │  Real cookies  │
+                                                               └────────────────┘
+```
 
-### ⚡ Full Browser Automation
-CDP commands: navigate, snapshot (AX tree), click, type, key-press, scroll, screenshot, capture network. Large-page AX tree with depth limit for performance.
+**Key insight:** The Chrome extension keeps a persistent SSE connection to the daemon. When the agent calls `brosearch fetch twitter/search`, the adapter JS is sent to the extension over SSE, executed inside the real Twitter tab via `chrome.debugger` (CDP), and the result is returned as JSON. The website never sees a bot — it sees *you*.
 
-</td>
-</tr>
-</table>
+### Why not Playwright / Puppeteer?
+
+| | Playwright | Scraping | brosearch |
+|---|---|---|---|
+| Browser instance | New headless browser | No browser | Your real Chrome |
+| Login state | None — must re-login | Cookie extraction (fragile) | Already there |
+| Anti-bot detection | `navigator.webdriver=true` | IP blocks, CAPTCHAs | Invisible — it IS you |
+| Complex auth (2FA, OAuth) | Very hard to replicate | Nearly impossible | Page handles it |
+| Speed | Slow (browser launch) | Varies | Fast (tab already open) |
 
 ---
 
 ## Quick Start
 
-### 1. Start the Daemon
-
 ```bash
 git clone https://github.com/haibindev/brosearch.git
 cd brosearch
 
-# Install daemon dependencies
+# 1. Start daemon
 cd packages/daemon && npm install && cd ../..
-
-# Start daemon (default port 19824)
 npx tsx packages/daemon/src/index.ts
-```
 
-### 2. Load the Chrome Extension
+# 2. Load extension: Chrome → chrome://extensions → Developer Mode → Load unpacked → packages/extension/
+#    Extension badge shows ✓ when connected.
 
-Open Chrome → `chrome://extensions` → Enable Developer Mode → **Load unpacked** → select `packages/extension/`
+# 3. Install Python deps
+pip install requests pyyaml  # anthropic only needed for auto-generate
 
-The extension badge shows `✓` when connected to the daemon.
-
-### 3. Use It
-
-```bash
-# Install Python deps
-pip install requests pyyaml
-
-# Fetch platform data (requires Chrome with logged-in session)
-python -m brosearch fetch zhihu/hot
-python -m brosearch fetch twitter/search query="AI agent"
-python -m brosearch fetch bilibili/hot
-
-# General web search (no Chrome needed)
-python -m brosearch search "latest AI news" --engines ddg brave
-
-# Read any page as clean text
-python -m brosearch read "https://example.com/article"
-
-# Check system status
+# 4. Go
 python -m brosearch doctor
+python -m brosearch fetch zhihu/hot
+python -m brosearch search "AI agent frameworks"
 ```
 
 ---
 
 ## Commands
 
-### Data Commands
-
-| Command | Description | Chrome needed |
-|---------|-------------|:---:|
-| `fetch <platform/command> [key=val]` | Run a platform adapter | ✅ |
+| Command | Description | Chrome |
+|---------|-------------|:------:|
+| `fetch <platform/command> [key=val]` | Run platform adapter | ✅ |
 | `search <query> [--engines ...] [--limit N]` | Multi-engine web search | ❌ |
 | `read <url>` | Full-text via Jina Reader | ❌ |
-| `adapters` | List all available adapters | ❌ |
-| `doctor` | Check daemon + extension status | ❌ |
-
-### Adapter Generation
-
-| Command | Description |
-|---------|-------------|
-| `capture [--tab <pattern>] [--duration N] [--out file.json]` | Record network requests from open page |
-| `generate --capture <file> --platform <p> --command <c>` | Generate adapter from captured requests |
-| `auto-generate --url <url> --platform <p> --command <c>` | **Fully automatic**: open → interact → capture → generate |
-
-### Diagnostics
-
-| Command | Description |
-|---------|-------------|
-| `console [--tab <pattern>] [--clear]` | Read `console.log` output from tab |
-| `errors [--tab <pattern>] [--clear]` | Read JavaScript exceptions from tab |
-
-### Auto-Generate Example
-
-```bash
-# Generate a Weibo trending adapter automatically
-ANTHROPIC_API_KEY=sk-... python -m brosearch auto-generate \
-  --url "https://weibo.com/hot/search" \
-  --platform weibo \
-  --command trending \
-  --duration 5
-# → saves adapters/custom/weibo/trending.js
-# → use with: brosearch fetch weibo/trending
-```
-
-The AI loop supports these actions: `capture`, `scroll`, `click @ref`, `type <text> [@ref]`, `key-press Enter`, `wait`.
+| `capture [--tab <pattern>] [--duration N]` | Record network requests | ✅ |
+| `generate --capture <file> --platform <p> --command <c>` | Generate adapter from capture | ❌ |
+| `auto-generate --url <url> --platform <p> --command <c>` | Fully automatic: open→interact→capture→generate | ✅ |
+| `console [--tab <pattern>] [--clear]` | Read `console.log` from tab | ✅ |
+| `errors [--tab <pattern>] [--clear]` | Read JS exceptions from tab | ✅ |
+| `adapters` | List available adapters | ❌ |
+| `doctor` | Check daemon + extension health | ❌ |
 
 ---
 
 ## Built-in Adapters
 
-| Platform | Commands | Auth Tier |
-|----------|----------|-----------|
-| **Twitter** | `search`, `timeline` | Tier 2 (Bearer + CSRF) |
-| **Zhihu** | `hot`, `search` | Tier 1 (Cookie) |
-| **Xiaohongshu** | `search` | Tier 3 (Internal API) |
-| **GitHub** | `trending` | Tier 1 (Public + DOM) |
-| **HackerNews** | `top` | Public API |
+### International
+
+| Platform | Commands | Notes |
+|----------|----------|-------|
+| **Twitter / X** | `search`, `timeline` | Bearer + CSRF (Tier 2) |
+| **Reddit** | `hot` | Public JSON API; `sub=` param for subreddit |
+| **GitHub** | `trending` | Public page + DOM parsing |
+| **HackerNews** | `top` | Firebase public API |
+| **arXiv** | `search` | Public Atom API; no tab needed |
+| **StackOverflow** | `search` | StackExchange public API; no tab needed |
+| **npm** | `search` | registry.npmjs.org; no tab needed |
+| **Product Hunt** | `trending` | GraphQL (logged-in recommended) |
 | **V2EX** | `hot` | Public API |
-| **Bilibili** | `hot` | Tier 1 (Cookie) |
-| **Weibo** | `hot` | Tier 1 (Cookie) |
 
-**Auth tiers:**
-- **Tier 1** — `fetch()` with `credentials: 'include'` (cookies auto-attached)
-- **Tier 2** — Extract Bearer/CSRF token from cookies or page globals, pass in headers
-- **Tier 3** — Access internal API client from webpack module or global store
+### China
 
----
+| Platform | Commands | Notes |
+|----------|----------|-------|
+| **知乎 Zhihu** | `hot`, `search` | Cookie (Tier 1) |
+| **微博 Weibo** | `hot`, `hot-search` | Cookie; `hot-search` = 热搜榜 |
+| **小红书 XHS** | `search` | Webpack injection (Tier 3) |
+| **B站 Bilibili** | `hot` | Cookie (Tier 1) |
+| **36kr** | `hot`, `newsflash` | Cookie (Tier 1) |
+| **掘金 Juejin** | `hot` | Token (Tier 2) |
+| **雪球 Xueqiu** | `hot` | Cookie; `market=CN/US/HK` |
+| **豆瓣 Douban** | `hot-movie` | Cookie; `type=movie/tv` |
 
-## Architecture
-
-```
-brosearch
-├── packages/
-│   ├── extension/
-│   │   ├── background.js     → Service Worker: SSE client, CDP commands, event dispatcher
-│   │   ├── manifest.json     → MV3, permissions: debugger/tabs/storage/alarms
-│   │   └── popup.html        → Connection status badge
-│   └── daemon/
-│       └── src/
-│           ├── index.ts          → HTTP server (native node:http, no Express)
-│           ├── extension-bridge.ts → SSE connection + pending request tracking
-│           └── router.ts         → Load & route adapter JS files
-├── adapters/
-│   ├── twitter/              → search.js, timeline.js
-│   ├── zhihu/                → hot.js, search.js
-│   ├── xiaohongshu/          → search.js
-│   ├── github/               → trending.js
-│   ├── hackernews/           → top.js
-│   ├── v2ex/                 → hot.js
-│   ├── bilibili/             → hot.js
-│   ├── weibo/                → hot.js
-│   └── custom/               → AI-generated adapters (gitignored)
-├── brosearch/
-│   ├── cli.py                → Unified CLI entry point
-│   ├── daemon_client.py      → HTTP client for daemon
-│   ├── host.py               → WSL host detection
-│   ├── search.py             → Search engine aggregator
-│   └── jina_reader.py        → Jina Reader fallback
-└── engines/
-    ├── google_cse.py         → Google Custom Search
-    ├── bing_serpapi_http.py  → Bing via SerpAPI
-    ├── brave_html.py         → Brave Search (no key)
-    ├── ddg_html.py           → DuckDuckGo (no key)
-    └── wikipedia_api.py      → Wikipedia
-```
-
-### How It Works
-
-```
-CLI / OpenClaw skill
-      │  HTTP
-      ▼
-  Daemon :19824
-      │  SSE (persistent connection)
-      ▼
-Chrome Extension (Background Service Worker)
-      │  chrome.debugger API (CDP)
-      ▼
-  Chrome Tab (real session, real cookies)
-```
-
-The extension maintains a persistent SSE connection to the daemon. When the CLI sends a command (`fetch`, `capture`, `click`, etc.), the daemon forwards it over SSE. The extension executes it via CDP and POSTs the result back.
+> Custom adapters go in `adapters/custom/` (gitignored). Generate them with `auto-generate`.
 
 ---
 
-## Tech Stack
+## Adapter Format
 
-| Layer | Technology |
-|-------|-----------|
-| Chrome Extension | MV3 Service Worker, CDP (`chrome.debugger`) |
-| Daemon | Node.js, TypeScript, native `node:http` |
-| CLI | Python 3.9+, zero runtime deps |
-| Browser protocol | Chrome DevTools Protocol 1.3 |
-| AI (auto-generate) | Claude API (`claude-sonnet-4-6`) |
-| Search engines | Google CSE, Bing (SerpAPI), Brave, DuckDuckGo, Wikipedia |
-| Page reading | Jina Reader (`r.jina.ai`) |
-
----
-
-## Writing a Custom Adapter
+One JS file per command. Dead simple:
 
 ```javascript
-// adapters/custom/mysite/feed.js
+// adapters/mysite/feed.js
 module.exports = {
   description: 'Get latest posts from MyForum',
-  tabQuery: { url: '*://myforum.com/*' },     // which Chrome tab to use
+  tabQuery: { url: '*://myforum.com/*' },   // which tab to run in
   buildJs: (args) => `
-    // This runs inside the Chrome tab — cookies are already there
-    const res = await fetch('/api/posts?limit=${args.limit || 20}', {
+    // Runs inside your Chrome tab. Cookies are already there.
+    const res  = await fetch('/api/posts?limit=${args.limit || 20}', {
       credentials: 'include'
     })
     const data = await res.json()
-    return data.posts.map(p => ({
-      id:    p.id,
-      title: p.title,
-      url:   p.url,
-      score: p.likes
-    }))
+    return data.posts.map(p => ({ id: p.id, title: p.title, url: p.url }))
   `
 }
 ```
 
-Then: `brosearch fetch mysite/feed limit=50`
+Three auth tiers:
 
-Or let AI write it for you: `brosearch auto-generate --url https://myforum.com --platform mysite --command feed`
+| Tier | Method | Example |
+|------|--------|---------|
+| **1** | `fetch()` + `credentials: 'include'` | Reddit, GitHub, V2EX |
+| **2** | Extract Bearer/CSRF from cookies/globals | Twitter, Zhihu, Juejin |
+| **3** | Access webpack module / global store | Xiaohongshu |
+
+---
+
+## Auto-Generate an Adapter
+
+```bash
+ANTHROPIC_API_KEY=sk-... python -m brosearch auto-generate \
+  --url "https://producthunt.com" \
+  --platform producthunt \
+  --command trending
+```
+
+The AI interaction loop:
+1. Opens URL in Chrome
+2. Gets Accessibility Tree snapshot (`@ref role "name"`)
+3. Decides actions: `capture`, `scroll`, `click @ref`, `type text [@ref]`, `key-press Enter`
+4. Captures triggered API requests (with response bodies, up to 256KB each)
+5. Generates adapter JS from captured traffic
+6. Checks `console.log` / JS errors for self-diagnosis if generation fails
+
+---
+
+## Acknowledgements
+
+brosearch is inspired by and builds on the ideas from **[bb-browser](https://github.com/epiral/bb-browser)** — a brilliant project that pioneered the "your browser is the API" concept for AI agents.
+
+**Differences from bb-browser:**
+
+| | bb-browser | brosearch |
+|---|---|---|
+| Distribution | npm package | Clone & run |
+| MCP server | ✅ | ❌ (removed) |
+| Adapter community | 36 platforms, 103 commands (bb-sites) | 17 platforms built-in + auto-generate |
+| Search engines | ❌ | ✅ (Google/Bing/Brave/DDG/Wikipedia) |
+| Jina Reader fallback | ❌ | ✅ |
+| Adapter auto-generation | Semi-auto (capture → AI) | **Fully auto** (AI navigates + interacts) |
+| Language | TypeScript CLI | Python CLI + TypeScript daemon |
+| WSL support | Partial | ✅ Auto host detection |
+
+brosearch is a lighter, self-contained version optimized for OpenClaw / Python-based agent setups, with a focus on Chinese platforms and fully automated adapter generation.
 
 ---
 
 ## Contributing
 
-Contributions are welcome!
-
-- Open an [issue](https://github.com/haibindev/brosearch/issues) to report bugs or request new platform adapters
-- Submit a PR with a new adapter or engine
-- Star the project if you find it useful ⭐
+- Open an [issue](https://github.com/haibindev/brosearch/issues) for bugs or new platform requests
+- PRs welcome — especially new adapters
+- Star the repo if it's useful ⭐
 
 ---
 
@@ -316,35 +269,20 @@ MIT © [haibindev](https://github.com/haibindev)
 
 ## 中文说明
 
-brosearch 将已登录的 Chrome 浏览器变成结构化数据 API。
+**brosearch 把已登录的 Chrome 浏览器变成 AI agent 可以直接调用的数据 API。**
+
+无需 API Key，无需重新登录，无需爬虫——Chrome 标签页本身就是认证凭据。
 
 **三层架构，自动降级：**
-1. Chrome 扩展适配器 — 通过 CDP 在真实已登录标签页执行 JS，获取平台数据（Twitter/知乎/小红书/B站等）
-2. HTTP 搜索引擎 — 通用 Web 搜索（Google/Bing/Brave/DDG），无需 Chrome
-3. Jina Reader — 任意公开网页全文兜底
+1. Chrome 扩展适配器 → 通过 CDP 在真实登录标签页执行 JS，获取平台结构化数据
+2. HTTP 搜索引擎 → Google/Bing/Brave/DDG 聚合搜索（无需 Chrome）
+3. Jina Reader → 任意网页全文兜底
 
-**核心特性：**
-- 复用已登录 Session，零重新认证
-- 内置 8 个平台 11 条命令的适配器
-- `auto-generate` 命令：AI 自动打开页面、交互、抓取 API、生成适配器
-- Console/JS 错误监控，用于自动化自诊断
-- WSL 自动检测 Windows 主机 IP
-- Accessibility Tree 快照，大页面深度限制优化
+**内置 17 个平台，20+ 命令**，包括：知乎/微博/小红书/B站/36kr/掘金/雪球/豆瓣（国内），Twitter/Reddit/GitHub/arXiv/StackOverflow/npm（国外）。
 
-**快速开始：**
+`auto-generate` 命令：AI 自动打开页面 → Accessibility Tree 分析 → 交互（点击/滚动/输入）→ 抓取 API → 生成适配器 JS。
 
-```bash
-# 启动 daemon
-cd packages/daemon && npm install
-npx tsx src/index.ts
-
-# Chrome 加载扩展：packages/extension/
-
-# 使用
-python -m brosearch fetch zhihu/hot
-python -m brosearch auto-generate --url "https://weibo.com" --platform weibo --command hot
-python -m brosearch doctor
-```
+灵感来源和致谢：[bb-browser](https://github.com/epiral/bb-browser)。
 
 ---
 
