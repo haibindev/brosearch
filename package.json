@@ -1,0 +1,17 @@
+{
+  "name": "brosearch",
+  "version": "0.1.0",
+  "description": "Your browser + the web, as one unified search API",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "daemon": "pnpm --filter daemon start",
+    "daemon:dev": "pnpm --filter daemon dev",
+    "build": "pnpm --filter daemon build"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

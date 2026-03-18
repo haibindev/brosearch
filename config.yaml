@@ -1,0 +1,31 @@
+# brosearch 配置
+
+# daemon 端口（Windows/Mac 本机运行）
+daemon_port: 19824
+
+# WSL 环境下 daemon 地址（auto = 自动检测，也可写死 http://192.168.x.x:19824）
+# 优先级：环境变量 BROSEARCH_DAEMON > 此配置 > auto
+wsl_daemon: auto
+
+# 搜索引擎优先级（HTTP 层，无需 Chrome）
+engine_priority:
+  - google
+  - bing
+  - brave
+  - ddg
+  - wikipedia
+
+default_limit: 10
+max_aggregate_results: 50
+timeout_sec: 15
+
+# 缓存
+cache:
+  enabled: true
+  ttl_sec: 1800
+  path: .cache/search_cache.json
+
+# 去重
+dedupe:
+  by_url: true
+  by_title: true

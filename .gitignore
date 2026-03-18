@@ -1,0 +1,31 @@
+# Node
+node_modules/
+dist/
+.pnpm-store/
+pnpm-lock.yaml
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Custom adapters (user-generated, not tracked)
+adapters/custom/
+
+# Config with secrets
+config.local.yaml
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp

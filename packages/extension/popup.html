@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: system-ui; padding: 12px; min-width: 200px; font-size: 13px; }
+  .status { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.ok { background: #22c55e; }
+  .dot.err { background: #ef4444; }
+  .hint { color: #888; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="status">
+  <div class="dot" id="dot"></div>
+  <span id="label">Connecting...</span>
+</div>
+<div class="hint" id="hint"></div>
+<script>
+  chrome.runtime.getBackgroundPage(bg => {
+    const ok = bg?.connected
+    document.getElementById('dot').className = 'dot ' + (ok ? 'ok' : 'err')
+    document.getElementById('label').textContent = ok ? 'Daemon connected' : 'Daemon not found'
+    document.getElementById('hint').textContent = ok ? 'brosearch is ready' : 'Start daemon: pnpm daemon'
+  })
+</script>
+</body>
+</html>
