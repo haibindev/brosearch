@@ -157,11 +157,87 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
-  // ── POST /api/scroll  { deltaY?, deltaX?, x?, y?, tabQuery? }
+  // ── POST /api/scroll  { deltaY?, deltaX?, x?, y?, ref?, tabQuery? }
   if (method === 'POST' && url === '/api/scroll') {
     if (!requireExtension(res)) return
-    const { deltaX, deltaY, x, y, tabQuery } = await parseBody(req)
-    try { json(res, 200, { ok: true, data: await bridge.scroll({ deltaX, deltaY, x, y }, tabQuery) }) }
+    const { deltaX, deltaY, x, y, ref, tabQuery } = await parseBody(req)
+    try { json(res, 200, { ok: true, data: await bridge.scroll({ deltaX, deltaY, x, y, ref }, tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/fill  { text, ref, tabQuery? }
+  if (method === 'POST' && url === '/api/fill') {
+    if (!requireExtension(res)) return
+    const { text, ref, tabQuery } = await parseBody(req)
+    if (!text || ref == null) { json(res, 400, { error: 'text and ref required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.fill(text, ref, tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/hover  { ref, tabQuery? }
+  if (method === 'POST' && url === '/api/hover') {
+    if (!requireExtension(res)) return
+    const { ref, tabQuery } = await parseBody(req)
+    if (ref == null) { json(res, 400, { error: 'ref required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.hover(ref, tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/select  { ref, value, tabQuery? }
+  if (method === 'POST' && url === '/api/select') {
+    if (!requireExtension(res)) return
+    const { ref, value, tabQuery } = await parseBody(req)
+    if (ref == null || value == null) { json(res, 400, { error: 'ref and value required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.select(ref, value, tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/reload  { tabQuery? }
+  if (method === 'POST' && url === '/api/reload') {
+    if (!requireExtension(res)) return
+    const { tabQuery } = await parseBody(req)
+    try { json(res, 200, { ok: true, data: await bridge.reload(tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/tabs
+  if (method === 'POST' && url === '/api/tabs') {
+    if (!requireExtension(res)) return
+    try { json(res, 200, { ok: true, data: await bridge.tabList() }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/tab/switch  { tabId }
+  if (method === 'POST' && url === '/api/tab/switch') {
+    if (!requireExtension(res)) return
+    const { tabId } = await parseBody(req)
+    if (tabId == null) { json(res, 400, { error: 'tabId required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.tabSwitch(tabId) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/tab/close  { tabId }
+  if (method === 'POST' && url === '/api/tab/close') {
+    if (!requireExtension(res)) return
+    const { tabId } = await parseBody(req)
+    if (tabId == null) { json(res, 400, { error: 'tabId required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.tabClose(tabId) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/wait  { ms }
+  if (method === 'POST' && url === '/api/wait') {
+    if (!requireExtension(res)) return
+    const { ms = 1000 } = await parseBody(req)
+    try { json(res, 200, { ok: true, data: await bridge.wait(Number(ms)) }) }
     catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
     return
   }

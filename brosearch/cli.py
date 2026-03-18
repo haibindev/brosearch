@@ -11,6 +11,7 @@ Commands:
   adapters
   console       [--tab <url-pattern>] [--clear]
   errors        [--tab <url-pattern>] [--clear]
+  wait          <seconds>
   doctor
 """
 import sys
@@ -210,12 +211,20 @@ def cmd_auto_generate(args):
                     print(f'[brosearch] 抓取失败: {e}', file=sys.stderr)
 
             elif t == 'scroll':
-                dy = act.get('deltaY', 600)
-                print(f'[brosearch] 向下滚动 {dy}px...', file=sys.stderr)
-                try:
-                    client.scroll(delta_y=dy, tab_query=tab_query)
-                except Exception as e:
-                    print(f'[brosearch] 滚动失败: {e}', file=sys.stderr)
+                ref = act.get('ref')
+                if ref is not None:
+                    print(f'[brosearch] 滚动至 @{ref}...', file=sys.stderr)
+                    try:
+                        client.scroll(ref=ref, tab_query=tab_query)
+                    except Exception as e:
+                        print(f'[brosearch] 滚动失败: {e}', file=sys.stderr)
+                else:
+                    dy = act.get('deltaY', 600)
+                    print(f'[brosearch] 向下滚动 {dy}px...', file=sys.stderr)
+                    try:
+                        client.scroll(delta_y=dy, tab_query=tab_query)
+                    except Exception as e:
+                        print(f'[brosearch] 滚动失败: {e}', file=sys.stderr)
 
             elif t == 'click':
                 ref = act['ref']
@@ -226,6 +235,14 @@ def cmd_auto_generate(args):
                 except Exception as e:
                     print(f'[brosearch] 点击 @{ref} 失败: {e}', file=sys.stderr)
 
+            elif t == 'hover':
+                ref = act['ref']
+                print(f'[brosearch] 悬停 @{ref}...', file=sys.stderr)
+                try:
+                    client.hover(ref, tab_query=tab_query)
+                except Exception as e:
+                    print(f'[brosearch] 悬停失败: {e}', file=sys.stderr)
+
             elif t == 'type':
                 text = act['text']
                 ref  = act.get('ref')
@@ -235,6 +252,24 @@ def cmd_auto_generate(args):
                 except Exception as e:
                     print(f'[brosearch] 输入失败: {e}', file=sys.stderr)
 
+            elif t == 'fill':
+                text = act['text']
+                ref  = act['ref']
+                print(f'[brosearch] 填充 "{text}" → @{ref}...', file=sys.stderr)
+                try:
+                    client.fill(text, ref, tab_query=tab_query)
+                except Exception as e:
+                    print(f'[brosearch] 填充失败: {e}', file=sys.stderr)
+
+            elif t == 'select':
+                ref   = act['ref']
+                value = act['value']
+                print(f'[brosearch] 选择 @{ref} = "{value}"...', file=sys.stderr)
+                try:
+                    client.select(ref, value, tab_query=tab_query)
+                except Exception as e:
+                    print(f'[brosearch] 选择失败: {e}', file=sys.stderr)
+
             elif t == 'key-press':
                 key = act['key']
                 print(f'[brosearch] 按键 {key}...', file=sys.stderr)
@@ -242,6 +277,13 @@ def cmd_auto_generate(args):
                     client.key_press(key, tab_query=tab_query)
                 except Exception as e:
                     print(f'[brosearch] 按键失败: {e}', file=sys.stderr)
+
+            elif t == 'reload':
+                print('[brosearch] 刷新页面...', file=sys.stderr)
+                try:
+                    client.reload(tab_query=tab_query)
+                except Exception as e:
+                    print(f'[brosearch] 刷新失败: {e}', file=sys.stderr)
 
             elif t == 'wait':
                 secs = min(act.get('seconds', 2), 10)
@@ -302,6 +344,15 @@ def cmd_errors(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def cmd_wait(args):
+    client = DaemonClient()
+    _require_daemon(client)
+    _require_extension(client)
+    ms = int(args.seconds * 1000)
+    result = client.wait_ms(ms)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 # ─── adapters / doctor ───────────────────────────────────────────────────────
 
 def cmd_adapters(_args):
@@ -355,18 +406,24 @@ def _auto_prompt_phase1(platform: str, command: str, url: str, snapshot: dict) -
 |------|------|------|
 | 抓取网络请求 | `ACTION: capture [毫秒数]` | 默认 5000ms |
 | 向下滚动 | `ACTION: scroll [像素数]` | 默认 600px |
+| 滚动到元素 | `ACTION: scroll @<ref>` | 滚动至指定元素 |
 | 点击元素 | `ACTION: click @<ref>` | |
-| 输入文字 | `ACTION: type <文字> [@ref]` | 有 @ref 则先点击 |
+| 悬停元素 | `ACTION: hover @<ref>` | 触发 hover 弹出菜单 |
+| 输入文字（追加） | `ACTION: type <文字> [@ref]` | 有 @ref 则先点击 |
+| 填充文字（清空后填） | `ACTION: fill <文字> @<ref>` | 适合表单、React 输入框 |
+| 选择下拉项 | `ACTION: select @<ref> <value>` | 选择 select 选项的 value |
 | 按键 | `ACTION: key-press <键名>` | Enter/Tab/Escape 等 |
+| 刷新页面 | `ACTION: reload` | 重新加载页面 |
 | 等待 | `ACTION: wait <秒数>` | 最多 10 秒 |
 | 完成 | `DONE` | 已收集到足够请求 |
 
 ## 推荐策略
 
 1. **热榜/推荐类**：先 `capture`（页面加载时就发了 API 请求），如果没抓到再 `scroll` + `capture`
-2. **搜索类**：先 `click` 搜索框 @ref → `type 搜索词` → `key-press Enter` → `capture`
+2. **搜索类**：`fill 搜索词 @ref` → `key-press Enter` → `capture`
 3. **登录类**：先截图确认登录状态，再操作
 4. 如果页面有"加载更多"按钮，先 `capture` 初始请求，然后 `click` 加载更多 + 再 `capture`
+5. 有 hover 菜单的页面用 `hover @ref` 触发，然后 `capture`
 
 请分析页面并输出动作序列：'''
 
@@ -397,6 +454,10 @@ def _parse_ai_actions(text: str) -> list:
             dur = int(m.group(1)) if m.group(1) else 5000
             actions.append({'type': 'capture', 'duration': dur}); continue
 
+        # scroll [pixels] or scroll @ref
+        m = re.match(r'ACTION:\s*scroll\s+@(\d+)', line, re.IGNORECASE)
+        if m:
+            actions.append({'type': 'scroll', 'ref': int(m.group(1))}); continue
         m = re.match(r'ACTION:\s*scroll\s*(\d*)', line, re.IGNORECASE)
         if m:
             dy = int(m.group(1)) if m.group(1) else 600
@@ -406,15 +467,32 @@ def _parse_ai_actions(text: str) -> list:
         if m:
             actions.append({'type': 'click', 'ref': int(m.group(1))}); continue
 
+        m = re.match(r'ACTION:\s*hover\s+@(\d+)', line, re.IGNORECASE)
+        if m:
+            actions.append({'type': 'hover', 'ref': int(m.group(1))}); continue
+
         m = re.match(r'ACTION:\s*type\s+(.+?)(?:\s+@(\d+))?$', line, re.IGNORECASE)
         if m:
             text_val = m.group(1).strip().strip('"\'')
             ref_val  = int(m.group(2)) if m.group(2) else None
             actions.append({'type': 'type', 'text': text_val, 'ref': ref_val}); continue
 
+        m = re.match(r'ACTION:\s*fill\s+(.+?)\s+@(\d+)$', line, re.IGNORECASE)
+        if m:
+            text_val = m.group(1).strip().strip('"\'')
+            actions.append({'type': 'fill', 'text': text_val, 'ref': int(m.group(2))}); continue
+
+        m = re.match(r'ACTION:\s*select\s+@(\d+)\s+(\S+)', line, re.IGNORECASE)
+        if m:
+            actions.append({'type': 'select', 'ref': int(m.group(1)), 'value': m.group(2)}); continue
+
         m = re.match(r'ACTION:\s*key-press\s+(\S+)', line, re.IGNORECASE)
         if m:
             actions.append({'type': 'key-press', 'key': m.group(1)}); continue
+
+        m = re.match(r'ACTION:\s*reload', line, re.IGNORECASE)
+        if m:
+            actions.append({'type': 'reload'}); continue
 
         m = re.match(r'ACTION:\s*wait\s+(\d+)', line, re.IGNORECASE)
         if m:
@@ -593,6 +671,9 @@ def main():
     p.add_argument('--tab', help='Tab URL 匹配模式')
     p.add_argument('--clear', action='store_true', help='获取后清空记录')
 
+    p = sub.add_parser('wait', help='让页面等待指定秒数（通过扩展执行）')
+    p.add_argument('seconds', type=float, help='等待时长（秒）')
+
     sub.add_parser('adapters')
     sub.add_parser('doctor')
 
@@ -606,6 +687,7 @@ def main():
         'auto-generate':  cmd_auto_generate,
         'console':        cmd_console,
         'errors':         cmd_errors,
+        'wait':           cmd_wait,
         'adapters':       cmd_adapters,
         'doctor':         cmd_doctor,
     }

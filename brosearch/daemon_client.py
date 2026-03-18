@@ -82,10 +82,43 @@ class DaemonClient:
         return self._ok(self._post('/api/key-press', payload), 'key-press')
 
     def scroll(self, delta_y: int = 600, delta_x: int = 0,
-               x: int = 760, y: int = 400, tab_query: dict = None) -> dict:
+               x: int = 760, y: int = 400, ref: int = None,
+               tab_query: dict = None) -> dict:
         payload = {'deltaY': delta_y, 'deltaX': delta_x, 'x': x, 'y': y}
+        if ref is not None: payload['ref'] = ref
         if tab_query: payload['tabQuery'] = tab_query
         return self._ok(self._post('/api/scroll', payload), 'scroll')
+
+    def fill(self, text: str, ref: int, tab_query: dict = None) -> dict:
+        payload = {'text': text, 'ref': ref}
+        if tab_query: payload['tabQuery'] = tab_query
+        return self._ok(self._post('/api/fill', payload), 'fill')
+
+    def hover(self, ref: int, tab_query: dict = None) -> dict:
+        payload = {'ref': ref}
+        if tab_query: payload['tabQuery'] = tab_query
+        return self._ok(self._post('/api/hover', payload), 'hover')
+
+    def select(self, ref: int, value: str, tab_query: dict = None) -> dict:
+        payload = {'ref': ref, 'value': value}
+        if tab_query: payload['tabQuery'] = tab_query
+        return self._ok(self._post('/api/select', payload), 'select')
+
+    def reload(self, tab_query: dict = None) -> dict:
+        payload = {'tabQuery': tab_query or {}}
+        return self._ok(self._post('/api/reload', payload, timeout=25), 'reload')
+
+    def tab_list(self) -> list:
+        return self._ok(self._post('/api/tabs', {}), 'tab-list')
+
+    def tab_switch(self, tab_id: int) -> dict:
+        return self._ok(self._post('/api/tab/switch', {'tabId': tab_id}), 'tab-switch')
+
+    def tab_close(self, tab_id: int) -> dict:
+        return self._ok(self._post('/api/tab/close', {'tabId': tab_id}), 'tab-close')
+
+    def wait_ms(self, ms: int) -> dict:
+        return self._ok(self._post('/api/wait', {'ms': ms}, timeout=ms / 1000 + 10), 'wait')
 
     def capture(self, tab_query: dict, duration_ms: int) -> list:
         return self._ok(self._post('/api/capture', {

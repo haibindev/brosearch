@@ -76,8 +76,40 @@ export class ExtensionBridge {
     return this._send({ type: 'key-press', key, tabQuery }, timeoutMs)
   }
 
-  scroll(opts: { x?: number; y?: number; deltaX?: number; deltaY?: number }, tabQuery?: object, timeoutMs = 5000): Promise<any> {
+  scroll(opts: { x?: number; y?: number; deltaX?: number; deltaY?: number; ref?: number }, tabQuery?: object, timeoutMs = 5000): Promise<any> {
     return this._send({ type: 'scroll', ...opts, tabQuery }, timeoutMs)
+  }
+
+  fill(text: string, ref: number, tabQuery?: object, timeoutMs = 10000): Promise<any> {
+    return this._send({ type: 'fill', text, ref, tabQuery }, timeoutMs)
+  }
+
+  hover(ref: number, tabQuery?: object, timeoutMs = 10000): Promise<any> {
+    return this._send({ type: 'hover', ref, tabQuery }, timeoutMs)
+  }
+
+  select(ref: number, value: string, tabQuery?: object, timeoutMs = 10000): Promise<any> {
+    return this._send({ type: 'select', ref, value, tabQuery }, timeoutMs)
+  }
+
+  reload(tabQuery?: object, timeoutMs = 20000): Promise<any> {
+    return this._send({ type: 'reload', tabQuery }, timeoutMs)
+  }
+
+  tabList(timeoutMs = 5000): Promise<any> {
+    return this._send({ type: 'tab-list' }, timeoutMs)
+  }
+
+  tabSwitch(tabId: number, timeoutMs = 5000): Promise<any> {
+    return this._send({ type: 'tab-switch', tabId }, timeoutMs)
+  }
+
+  tabClose(tabId: number, timeoutMs = 5000): Promise<any> {
+    return this._send({ type: 'tab-close', tabId }, timeoutMs)
+  }
+
+  wait(ms: number, timeoutMs?: number): Promise<any> {
+    return this._send({ type: 'wait', ms }, timeoutMs ?? ms + 5000)
   }
 
   screenshot(tabQuery?: object, opts: { format?: string; quality?: number; clip?: object; captureBeyondViewport?: boolean } = {}, timeoutMs = 10000): Promise<any> {
