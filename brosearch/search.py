@@ -55,17 +55,30 @@ def _cache_set(key: str, data: dict):
     (_CACHE_DIR / f'{key}.json').write_text(json.dumps(data, ensure_ascii=False))
 
 
+# Map short engine names to (module_file, class_name) in engines/
+_ENGINE_MAP = {
+    'google':    ('google_cse',        'GoogleCseEngine'),
+    'bing':      ('bing_serpapi_http', 'BingSerpApiHttpEngine'),
+    'brave':     ('brave_html',        'BraveHtmlEngine'),
+    'ddg':       ('ddg_html',          'DuckDuckGoHtmlEngine'),
+    'wikipedia': ('wikipedia_api',     'WikipediaApiEngine'),
+}
+
+_SEARCH_TIMEOUT = _config.get('timeout_sec', 15)
+
+
 def _load_engine(name: str):
     from importlib import import_module
+    module_file, class_name = _ENGINE_MAP.get(name, (name, 'Engine'))
     try:
-        mod = import_module(f'engines.{name}')
-        return getattr(mod, 'Engine', None)
+        mod = import_module(f'engines.{module_file}')
+        return getattr(mod, class_name, None)
     except ImportError:
         return None
 
 
 def aggregate_search(query: str, engines: list = None, limit: int = None) -> dict:
-    engines = engines or _ENGINE_PRIORITY
+    engines = _ENGINE_PRIORITY if engines is None else engines
     limit = limit or _DEFAULT_LIMIT
 
     cache_key = _cache_key(query, engines, limit)
@@ -88,18 +101,20 @@ def aggregate_search(query: str, engines: list = None, limit: int = None) -> dic
             continue
         try:
             engine = EngineClass()
-            results = engine.search(query, limit=limit)
+            results = engine.search(query, limit=limit, timeout_sec=_SEARCH_TIMEOUT)
             for r in results:
-                url = r.get('url', '')
-                title = r.get('title', '')
+                # EngineResult is a dataclass — convert to dict
+                r_dict = r.to_dict() if hasattr(r, 'to_dict') else dict(r)
+                url   = r_dict.get('url', '')
+                title = r_dict.get('title', '')
                 if url in seen_urls or title in seen_titles:
                     continue
                 seen_urls.add(url)
                 if title:
                     seen_titles.add(title)
-                r['source'] = name
-                r['rank'] = len(all_results) + 1
-                all_results.append(r)
+                r_dict['source'] = name
+                r_dict['rank']   = len(all_results) + 1
+                all_results.append(r_dict)
             engines_used.append(name)
         except Exception as e:
             errors.append({'engine': name, 'error': str(e)})
@@ -122,6 +137,7 @@ def aggregate_search(query: str, engines: list = None, limit: int = None) -> dic
 
 
 def check_engines() -> dict:
+    """Return availability status for each configured engine."""
     status = {}
     for name in _ENGINE_PRIORITY:
         EngineClass = _load_engine(name)
@@ -130,7 +146,9 @@ def check_engines() -> dict:
             continue
         try:
             engine = EngineClass()
-            status[name] = 'ok' if engine.available() else 'no key'
+            # doctor() returns (status_str, message); 'ok' means available
+            doc_status, _ = engine.doctor()
+            status[name] = 'ok' if doc_status == 'ok' else 'no key'
         except Exception as e:
             status[name] = f'error: {e}'
     return status

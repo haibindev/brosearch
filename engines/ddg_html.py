@@ -6,7 +6,7 @@ from typing import List
 
 import requests
 
-from ..core.config import get_env
+from .config import get_env
 from .base import EngineResult, SearchEngine
 
 
