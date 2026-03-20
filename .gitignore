@@ -21,6 +21,9 @@ adapters/custom/
 config.local.yaml
 .env
 
+# Cache
+.cache/
+
 # OS
 .DS_Store
 Thumbs.db
