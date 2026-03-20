@@ -11,6 +11,7 @@ Commands:
   adapters
   console       [--tab <url-pattern>] [--clear]
   errors        [--tab <url-pattern>] [--clear]
+  eval          --tab <url-pattern> --js <code> | --js-file <path>
   wait          <seconds>
   doctor
 """
@@ -353,6 +354,55 @@ def cmd_wait(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+# ─── eval ─────────────────────────────────────────────────────────────────────
+
+def cmd_eval(args):
+    js = args.js
+    if args.js_file:
+        p = Path(args.js_file)
+        if not p.exists():
+            print(json.dumps({'error': f'文件不存在: {args.js_file}'}))
+            sys.exit(1)
+        js = p.read_text(encoding='utf-8')
+    if not js:
+        print(json.dumps({'error': '需要 --js 或 --js-file'}))
+        sys.exit(1)
+
+    client = DaemonClient()
+    _require_daemon(client)
+    _require_extension(client)
+    tab_query = {'url': args.tab} if args.tab else {}
+    result = client.evaluate(tab_query, js, timeout=args.timeout)
+    import sys as _sys
+    _sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+# ─── navigate ─────────────────────────────────────────────────────────────────
+
+def cmd_navigate(args):
+    client = DaemonClient()
+    _require_daemon(client)
+    _require_extension(client)
+    tab_query = {'url': args.tab} if args.tab else None
+    result = client.navigate(args.url, tab_query)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+# ─── detach ───────────────────────────────────────────────────────────────────
+
+def cmd_detach(args):
+    client = DaemonClient()
+    _require_daemon(client)
+    _require_extension(client)
+    if args.all:
+        result = client.detach_all()
+    else:
+        tab_query = {'url': args.tab} if args.tab else {}
+        result = client.detach(tab_query)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
 # ─── adapters / doctor ───────────────────────────────────────────────────────
 
 def cmd_adapters(_args):
@@ -663,6 +713,16 @@ def main():
     p.add_argument('--command', required=True)
     p.add_argument('--duration', type=float, default=5.0, help='每次抓取时长（秒）')
 
+    p = sub.add_parser('eval', help='在浏览器标签页中执行任意 JS 代码')
+    p.add_argument('--tab', help='Tab URL 匹配模式，如 *://*.zhihu.com/*')
+    p.add_argument('--js', help='要执行的 JS 代码')
+    p.add_argument('--js-file', help='包含 JS 代码的文件路径')
+    p.add_argument('--timeout', type=float, default=30, help='超时秒数（默认 30）')
+
+    p = sub.add_parser('navigate', help='在浏览器中打开指定 URL')
+    p.add_argument('url', help='要打开的 URL')
+    p.add_argument('--tab', help='在匹配的标签页中打开（否则新建标签页）')
+
     p = sub.add_parser('console', help='获取页面 console.log 记录')
     p.add_argument('--tab', help='Tab URL 匹配模式')
     p.add_argument('--clear', action='store_true', help='获取后清空记录')
@@ -673,6 +733,10 @@ def main():
 
     p = sub.add_parser('wait', help='让页面等待指定秒数（通过扩展执行）')
     p.add_argument('seconds', type=float, help='等待时长（秒）')
+
+    p = sub.add_parser('detach', help='断开浏览器调试连接（消除调试横幅）')
+    p.add_argument('--tab', help='Tab URL 匹配模式（不指定则断开当前活动标签页）')
+    p.add_argument('--all', action='store_true', help='断开所有已连接的标签页')
 
     sub.add_parser('adapters')
     sub.add_parser('doctor')
@@ -685,9 +749,12 @@ def main():
         'capture':        cmd_capture,
         'generate':       cmd_generate,
         'auto-generate':  cmd_auto_generate,
+        'eval':           cmd_eval,
+        'navigate':       cmd_navigate,
         'console':        cmd_console,
         'errors':         cmd_errors,
         'wait':           cmd_wait,
+        'detach':         cmd_detach,
         'adapters':       cmd_adapters,
         'doctor':         cmd_doctor,
     }

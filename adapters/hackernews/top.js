@@ -1,7 +1,7 @@
 // HackerNews top stories - public API, no auth needed
 module.exports = {
   description: 'Get HackerNews top stories',
-  tabQuery: { url: '*://*.ycombinator.com/*' },
+  tabQuery: {},
   buildJs: ({ limit = 20 }) => `
     const ids = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json')
       .then(r => r.json())

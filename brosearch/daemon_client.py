@@ -46,6 +46,11 @@ class DaemonClient:
             'platform': platform, 'command': command, 'args': args or {}
         }), 'fetch')
 
+    def evaluate(self, tab_query: dict, js: str, timeout: float = 30) -> dict:
+        return self._ok(self._post('/api/eval', {
+            'tabQuery': tab_query, 'js': js
+        }, timeout=timeout), 'eval')
+
     # ─── Browser automation ───────────────────────────────────────────────────
 
     def navigate(self, url: str, tab_query: dict = None) -> dict:
@@ -143,6 +148,15 @@ class DaemonClient:
         return self._ok(self._post('/api/errors', {
             'tabQuery': tab_query or {}, 'clear': clear
         }), 'get-errors')
+
+    # ─── Debugger lifecycle ─────────────────────────────────────────────────
+
+    def detach(self, tab_query: dict = None) -> dict:
+        payload = {'tabQuery': tab_query or {}}
+        return self._ok(self._post('/api/detach', payload), 'detach')
+
+    def detach_all(self) -> dict:
+        return self._ok(self._post('/api/detach-all', {}), 'detach-all')
 
     # ─── Adapters ─────────────────────────────────────────────────────────────
 

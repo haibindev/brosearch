@@ -124,6 +124,14 @@ export class ExtensionBridge {
     return this._send({ type: 'get-errors', tabQuery, clear }, timeoutMs)
   }
 
+  detach(tabQuery?: object, timeoutMs = 5000): Promise<any> {
+    return this._send({ type: 'detach', tabQuery }, timeoutMs)
+  }
+
+  detachAll(timeoutMs = 5000): Promise<any> {
+    return this._send({ type: 'detach-all' }, timeoutMs)
+  }
+
   private _send(payload: object, timeoutMs: number): Promise<any> {
     return new Promise((resolve, reject) => {
       if (!this.res) return reject(new Error('Chrome extension not connected'))

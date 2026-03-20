@@ -1,0 +1,29 @@
+{
+  "extName": {
+    "message": "Brosearch – 安全浏览器桥接"
+  },
+  "extDescription": {
+    "message": "将本地开发工具安全连接到浏览器。所有数据留在本机，无外部服务器、无追踪、无数据采集。开源项目。"
+  },
+  "statusReady": {
+    "message": "就绪"
+  },
+  "statusReadyHint": {
+    "message": "所有服务已连接"
+  },
+  "statusReconnecting": {
+    "message": "扩展正在重连..."
+  },
+  "statusReconnectingHint": {
+    "message": "请在 chrome://extensions 中刷新此扩展"
+  },
+  "statusDaemonOff": {
+    "message": "服务未启动"
+  },
+  "statusDaemonOffHint": {
+    "message": "运行: node packages/daemon/dist/index.js"
+  },
+  "statusConnecting": {
+    "message": "连接中..."
+  }
+}

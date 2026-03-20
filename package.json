@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "daemon": "pnpm --filter daemon start",
-    "daemon:dev": "pnpm --filter daemon dev",
-    "build": "pnpm --filter daemon build"
+    "daemon": "pnpm --filter brosearch-daemon start",
+    "daemon:dev": "pnpm --filter brosearch-daemon dev",
+    "build": "pnpm --filter brosearch-daemon build"
   },
   "engines": {
     "node": ">=18"

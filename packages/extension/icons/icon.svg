@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1e40af"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.95"/>
+      <stop offset="100%" style="stop-color:#e0e7ff;stop-opacity:0.9"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect x="4" y="4" width="120" height="120" rx="24" fill="url(#bg)"/>
+  <!-- Shield shape -->
+  <path d="M64 22 L96 36 L96 62 C96 82 82 98 64 106 C46 98 32 82 32 62 L32 36 Z"
+        fill="url(#shield)" stroke="#1e40af" stroke-width="1.5" opacity="0.95"/>
+  <!-- Search magnifier inside shield -->
+  <circle cx="58" cy="58" r="16" fill="none" stroke="#2563eb" stroke-width="5" stroke-linecap="round"/>
+  <line x1="70" y1="70" x2="82" y2="82" stroke="#2563eb" stroke-width="5" stroke-linecap="round"/>
+  <!-- Small checkmark at bottom-right of shield -->
+  <circle cx="82" cy="84" r="12" fill="#22c55e"/>
+  <polyline points="76,84 80,88 88,78" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

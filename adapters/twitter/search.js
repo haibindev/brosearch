@@ -1,43 +1,73 @@
-// Twitter search adapter - Tier 2: Bearer + CSRF token
+// Twitter search - DOM scraping (SearchTimeline API requires x-client-transaction-id which is hard to obtain)
+// Works best when user is on x.com/search page with the desired query
 module.exports = {
-  description: 'Search tweets',
-  tabQuery: { url: '*://twitter.com/*' },
+  description: 'Search tweets (scrapes from x.com search page)',
+  tabQuery: { url: ['*://*.twitter.com/*', '*://*.x.com/*'] },
   buildJs: ({ query, count = 20 }) => `
-    const getCookie = (name) => document.cookie.split('; ')
-      .find(r => r.startsWith(name + '='))?.split('=')[1]
+    const searchQuery = ${JSON.stringify(query || '')}
+    if (!searchQuery) throw new Error('query parameter is required')
+    const resultCount = ${Number(count)}
 
-    const bearer = [...document.scripts]
-      .map(s => s.src).filter(Boolean)
-      .reduce((found, src) => found, null) ||
-      'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+    // Scrape tweets from DOM
+    const tweetEls = document.querySelectorAll('[data-testid="tweet"]')
+    const tweets = []
 
-    const ct0 = getCookie('ct0')
-    if (!ct0) throw new Error('Not logged in to Twitter')
+    for (const el of tweetEls) {
+      try {
+        // Extract user info
+        const userNameEl = el.querySelector('[data-testid="User-Name"]')
+        const links = userNameEl ? userNameEl.querySelectorAll('a') : []
+        let screenName = ''
+        let displayName = ''
+        for (const a of links) {
+          if (a.href && a.href.match(/x\\.com\\/[^/]+$/)) {
+            screenName = screenName || a.href.split('/').pop()
+          }
+          if (!displayName && a.textContent && !a.textContent.startsWith('@')) {
+            displayName = a.textContent.trim()
+          }
+        }
 
-    const params = new URLSearchParams({
-      q: ${JSON.stringify(query)},
-      count: String(${count}),
-      tweet_mode: 'extended'
-    })
+        // Extract tweet text
+        const textEl = el.querySelector('[data-testid="tweetText"]')
+        const text = textEl?.textContent?.trim() || ''
 
-    const res = await fetch(
-      'https://api.twitter.com/1.1/search/tweets.json?' + params,
-      {
-        headers: {
-          'Authorization': 'Bearer ' + bearer,
-          'x-csrf-token': ct0
-        },
-        credentials: 'include'
-      }
-    )
-    const json = await res.json()
-    return (json.statuses || []).map(t => ({
-      id: t.id_str,
-      text: t.full_text || t.text,
-      user: t.user.screen_name,
-      likes: t.favorite_count,
-      retweets: t.retweet_count,
-      created_at: t.created_at
-    }))
+        // Extract tweet ID from status link
+        const statusLink = el.querySelector('a[href*="/status/"]')
+        const statusMatch = statusLink?.href?.match(/status\\/(\\d+)/)
+        const tweetId = statusMatch?.[1] || ''
+
+        // Extract metrics from aria-label
+        const getMetric = (testId) => {
+          const metricEl = el.querySelector('[data-testid="' + testId + '"]')
+          const label = metricEl?.getAttribute('aria-label') || metricEl?.textContent || '0'
+          const num = label.match(/([\\d,]+)/)
+          return num ? parseInt(num[1].replace(/,/g, '')) : 0
+        }
+
+        // Extract time
+        const timeEl = el.querySelector('time')
+        const createdAt = timeEl?.getAttribute('datetime') || timeEl?.textContent || ''
+
+        if (text || tweetId) {
+          tweets.push({
+            id:         tweetId,
+            text:       text.substring(0, 500),
+            user:       screenName,
+            name:       displayName,
+            likes:      getMetric('like'),
+            retweets:   getMetric('retweet'),
+            replies:    getMetric('reply'),
+            created_at: createdAt,
+            url:        statusLink?.href || ''
+          })
+        }
+      } catch(e) { /* skip malformed tweet */ }
+    }
+
+    if (!tweets.length) {
+      throw new Error('No tweets found. Navigate to x.com/search?q=' + encodeURIComponent(searchQuery) + ' first, then retry.')
+    }
+    return tweets.slice(0, resultCount)
   `
 }

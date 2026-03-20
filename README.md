@@ -6,7 +6,7 @@
 
 [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](packages/extension/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](packages/daemon/)
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](brosearch/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](brosearch/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/haibindev/brosearch?style=social)](https://github.com/haibindev/brosearch)
 
@@ -21,51 +21,8 @@ AI agents have access to files, terminals, and a handful of APIs with keys. But 
 **brosearch gives agents direct access to the web through your already-logged-in Chrome.** No API keys. No re-login. No scraping. The browser executes your session credentials, the same way you do it yourself.
 
 ```
-agent calls:  brosearch fetch zhihu/hot
-              → runs JS in your Chrome tab → returns clean JSON
-```
-
-Three layers, automatic fallback:
-
-```
-1. Chrome extension adapters   →  Logged-in platform data  (Twitter / Zhihu / Reddit / ...)
-2. HTTP search engines         →  General web search       (no Chrome needed)
-3. Jina Reader                 →  Full-text of any page    (last resort)
-```
-
----
-
-## For AI Agents
-
-```bash
-# Cross-platform research in one session
-brosearch fetch arxiv/search query="retrieval augmented generation"
-brosearch fetch reddit/hot sub=MachineLearning
-brosearch fetch github/trending
-brosearch fetch stackoverflow/search query="RAG implementation"
-brosearch fetch zhihu/search query="RAG"
-brosearch fetch 36kr/newsflash
-
-# Six sources. Structured JSON. No browser tabs opened manually.
-```
-
-```bash
-# Authenticated platform data (uses your existing login)
-brosearch fetch twitter/search query="Claude agent"
-brosearch fetch bilibili/hot
-brosearch fetch xueqiu/hot market=CN
-brosearch fetch weibo/hot-search
-brosearch fetch juejin/hot
-
-# No token needed — your Chrome session is the credential.
-```
-
-```bash
-# Unknown platform? Generate an adapter automatically
-ANTHROPIC_API_KEY=sk-... brosearch auto-generate \
-  --url "https://news.ycombinator.com/show" \
-  --platform hn --command show
-# → AI opens the page, scrolls, captures API calls, writes adapter JS
+agent calls:  brosearch eval --js "return document.title"
+              → runs JS in your Chrome tab → returns result as JSON
 ```
 
 ---
@@ -73,9 +30,9 @@ ANTHROPIC_API_KEY=sk-... brosearch auto-generate \
 ## How It Works
 
 ```
-AI Agent (Claude Code / Cursor / any CLI)
+AI Agent (Claude Code / Cursor / OpenClaw / any CLI)
           │
-          │  Python CLI  (brosearch fetch / search / read / auto-generate)
+          │  Python CLI  (brosearch eval / fetch / navigate / detach / ...)
           ▼
     ┌─────────────────────────────────────────────────────┐
     │  Daemon  (Node.js, :19824)                          │
@@ -93,7 +50,7 @@ AI Agent (Claude Code / Cursor / any CLI)
                                                                └────────────────┘
 ```
 
-**Key insight:** The Chrome extension keeps a persistent SSE connection to the daemon. When the agent calls `brosearch fetch twitter/search`, the adapter JS is sent to the extension over SSE, executed inside the real Twitter tab via `chrome.debugger` (CDP), and the result is returned as JSON. The website never sees a bot — it sees *you*.
+**Key insight:** The Chrome extension keeps a persistent SSE connection to the daemon. When the agent calls `brosearch eval`, the JS is sent to the extension over SSE, executed inside the real browser tab via `chrome.debugger` (CDP), and the result is returned as JSON. The website never sees a bot — it sees *you*.
 
 ### Why not Playwright / Puppeteer?
 
@@ -109,25 +66,67 @@ AI Agent (Claude Code / Cursor / any CLI)
 
 ## Quick Start
 
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/haibindev/brosearch.git
+cd brosearch
+
+# One-line setup (installs Python package + builds Node daemon)
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+# Load Chrome extension manually:
+#   1. Open chrome://extensions/
+#   2. Enable "Developer mode" (top-right)
+#   3. Click "Load unpacked" → select packages/extension/
+
+# Start daemon (keep running)
+scripts\start-daemon.bat
+
+# Verify
+python -m brosearch doctor
+```
+
+### Linux / macOS
+
 ```bash
 git clone https://github.com/haibindev/brosearch.git
 cd brosearch
 
-# 1. Start daemon
-cd packages/daemon && npm install && cd ../..
-npx tsx packages/daemon/src/index.ts
+# One-line setup
+bash scripts/setup.sh
 
-# 2. Load extension: Chrome → chrome://extensions → Developer Mode → Load unpacked → packages/extension/
-#    Extension badge shows ✓ when connected.
+# Load Chrome extension (same manual steps as above)
 
-# 3. Install Python deps
-pip install requests pyyaml  # anthropic only needed for auto-generate
+# Start daemon
+node packages/daemon/dist/index.js &
 
-# 4. Go
+# Verify
 python -m brosearch doctor
-python -m brosearch fetch zhihu/hot
-python -m brosearch search "AI agent frameworks"
 ```
+
+### WSL (connecting to Windows Chrome)
+
+WSL only needs the Python CLI. The daemon and Chrome extension run on the **Windows side**.
+
+```bash
+# ── Windows side (PowerShell) ──
+# Follow the "Windows" steps above to install daemon + extension
+
+# ── WSL side ──
+git clone https://github.com/haibindev/brosearch.git ~/brosearch
+cd ~/brosearch
+pip install -e .    # Python CLI only, no Node needed
+
+# Verify (auto-detects Windows host IP)
+python -m brosearch doctor
+```
+
+> **Firewall**: If WSL can't reach the daemon, allow port 19824:
+> ```powershell
+> # Windows PowerShell (Admin)
+> netsh advfirewall firewall add rule name="brosearch" dir=in action=allow protocol=TCP localport=19824
+> ```
 
 ---
 
@@ -135,6 +134,8 @@ python -m brosearch search "AI agent frameworks"
 
 | Command | Description | Chrome |
 |---------|-------------|:------:|
+| `eval --js <code> [--tab <pattern>]` | Execute JS in browser tab | ✅ |
+| `navigate <url> [--tab <pattern>]` | Open URL in Chrome | ✅ |
 | `fetch <platform/command> [key=val]` | Run platform adapter | ✅ |
 | `search <query> [--engines ...] [--limit N]` | Multi-engine web search | ❌ |
 | `read <url>` | Full-text via Jina Reader | ❌ |
@@ -143,8 +144,48 @@ python -m brosearch search "AI agent frameworks"
 | `auto-generate --url <url> --platform <p> --command <c>` | Fully automatic: open→interact→capture→generate | ✅ |
 | `console [--tab <pattern>] [--clear]` | Read `console.log` from tab | ✅ |
 | `errors [--tab <pattern>] [--clear]` | Read JS exceptions from tab | ✅ |
+| `detach [--tab <pattern>] [--all]` | Detach debugger (removes debug banner) | ✅ |
 | `adapters` | List available adapters | ❌ |
 | `doctor` | Check daemon + extension health | ❌ |
+
+### Examples
+
+```bash
+# Execute JS in active tab
+python -m brosearch eval --js "return document.title"
+
+# Execute JS in a specific tab
+python -m brosearch eval --tab "*://github.com/*" --js "return document.title"
+
+# Navigate to a URL
+python -m brosearch navigate "https://github.com"
+
+# Run platform adapter
+python -m brosearch fetch zhihu/hot
+python -m brosearch fetch twitter/search query="Claude agent"
+
+# Multi-engine web search (no Chrome needed)
+python -m brosearch search "AI agent frameworks"
+
+# Detach all debugger sessions (removes "debugging this browser" banner)
+python -m brosearch detach --all
+```
+
+---
+
+## Chrome Extension
+
+- **i18n**: Automatically displays in English or Chinese based on Chrome language
+- **Badge**: No badge when connected; red **✗** badge when daemon is disconnected
+- **Popup**: Click the extension icon to see connection status
+
+### Extension status in popup:
+
+| Status | Meaning |
+|--------|---------|
+| 🟢 Ready | Daemon connected, extension active |
+| 🟡 Reconnecting | Daemon running but extension needs refresh |
+| 🔴 Daemon off | Daemon not running — start it first |
 
 ---
 
@@ -183,7 +224,7 @@ python -m brosearch search "AI agent frameworks"
 
 ## Adapter Format
 
-One JS file per command. Dead simple:
+One JS file per command:
 
 ```javascript
 // adapters/mysite/feed.js
@@ -242,7 +283,7 @@ brosearch is a lighter, self-contained version optimized for OpenClaw / Python-b
 
 - Open an [issue](https://github.com/haibindev/brosearch/issues) for bugs or new platform requests
 - PRs welcome — especially new adapters
-- Star the repo if it's useful ⭐
+- Star the repo if it's useful
 
 ---
 
@@ -266,10 +307,56 @@ MIT © [haibindev](https://github.com/haibindev)
 
 无需 API Key，无需重新登录，无需爬虫——Chrome 标签页本身就是认证凭据。
 
-**三层架构，自动降级：**
-1. Chrome 扩展适配器 → 通过 CDP 在真实登录标签页执行 JS，获取平台结构化数据
-2. HTTP 搜索引擎 → Google/Bing/Brave/DDG 聚合搜索（无需 Chrome）
-3. Jina Reader → 任意网页全文兜底
+### 架构
+
+```
+Python CLI  →  Node.js Daemon (:19824)  →  Chrome Extension (SSE+CDP)  →  浏览器标签页
+```
+
+- Chrome 扩展通过 SSE 保持与 daemon 的长连接
+- Agent 调用 CLI → daemon 转发命令 → 扩展在真实标签页中执行 JS → 返回 JSON
+- 支持 i18n（中/英文自适应）
+
+### 快速安装
+
+**Windows:**
+```powershell
+git clone https://github.com/haibindev/brosearch.git
+cd brosearch
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+# 加载 Chrome 扩展：chrome://extensions/ → 开发者模式 → 加载已解压 → packages/extension
+scripts\start-daemon.bat
+python -m brosearch doctor
+```
+
+**WSL（连接同机 Windows Chrome）:**
+```bash
+# Windows 端：按上面步骤安装 daemon + 扩展
+# WSL 端：只装 Python CLI
+pip install -e ~/brosearch
+python -m brosearch doctor   # 自动检测 Windows 宿主 IP
+```
+
+> 防火墙放行：`netsh advfirewall firewall add rule name="brosearch" dir=in action=allow protocol=TCP localport=19824`
+
+### 核心命令
+
+```bash
+# 在浏览器中执行 JS
+python -m brosearch eval --js "return document.title"
+
+# 导航到指定页面
+python -m brosearch navigate "https://zhihu.com"
+
+# 运行平台适配器
+python -m brosearch fetch zhihu/hot
+
+# 多引擎搜索（无需 Chrome）
+python -m brosearch search "AI agent"
+
+# 移除调试横幅
+python -m brosearch detach --all
+```
 
 **内置 17 个平台，20+ 命令**，包括：知乎/微博/小红书/B站/36kr/掘金/雪球/豆瓣（国内），Twitter/Reddit/GitHub/arXiv/StackOverflow/npm（国外）。
 

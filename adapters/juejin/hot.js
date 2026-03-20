@@ -17,16 +17,23 @@ module.exports = {
       }
     )
     const data = await res.json()
-    return (data?.data || []).map(item => ({
-      id:       item.article_id,
-      title:    item.article_info?.title,
-      brief:    item.article_info?.brief_content,
-      author:   item.author_user_info?.user_name,
-      tags:     item.tags?.map(t => t.tag_name),
-      views:    item.article_info?.view_count,
-      likes:    item.article_info?.digg_count,
-      comments: item.article_info?.comment_count,
-      url:      'https://juejin.cn/post/' + item.article_id
-    }))
+    return (data?.data || []).map(item => {
+      const info = item.item_info || item
+      const article = info.article_info || info
+      const author = info.author_user_info || item.author_user_info || {}
+      const tags = info.tags || item.tags || []
+      const aid = article.article_id || info.article_id || item.article_id
+      return {
+        id:       aid,
+        title:    article.title,
+        brief:    article.brief_content,
+        author:   author.user_name,
+        tags:     tags.map(t => t.tag_name),
+        views:    article.view_count,
+        likes:    article.digg_count,
+        comments: article.comment_count,
+        url:      'https://juejin.cn/post/' + aid
+      }
+    })
   `
 }

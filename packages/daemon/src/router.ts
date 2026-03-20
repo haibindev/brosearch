@@ -54,6 +54,14 @@ export class AdapterRouter {
     }
 
     const js = adapter.buildJs(args)
+
+    // Public API adapters (empty tabQuery): execute directly in Node.js — no browser needed
+    if (!adapter.tabQuery || Object.keys(adapter.tabQuery).length === 0) {
+      const fn = new Function(`return (async () => { ${js} })()`)
+      return await fn()
+    }
+
+    // Site-specific adapters: execute in browser tab via extension
     return this.bridge.evaluate(adapter.tabQuery, js)
   }
 

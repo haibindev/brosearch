@@ -1,6 +1,6 @@
 module.exports = {
   description: 'Reddit hot posts (r/all or specific subreddit)',
-  tabQuery: { url: '*://reddit.com/*' },
+  tabQuery: { url: '*://*.reddit.com/*' },
   buildJs: (args) => `
     const sub   = ${JSON.stringify(args.sub || 'all')}
     const limit = ${Number(args.limit) || 25}

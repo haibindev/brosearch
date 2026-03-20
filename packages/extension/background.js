@@ -104,8 +104,12 @@ function disconnect() {
 }
 
 function updateBadge(ok) {
-  chrome.action.setBadgeText({ text: ok ? '✓' : '✗' })
-  chrome.action.setBadgeBackgroundColor({ color: ok ? '#22c55e' : '#ef4444' })
+  if (ok) {
+    chrome.action.setBadgeText({ text: '' })
+  } else {
+    chrome.action.setBadgeText({ text: '✗' })
+    chrome.action.setBadgeBackgroundColor({ color: '#ef4444' })
+  }
 }
 
 async function readSSEStream(body) {
@@ -293,6 +297,8 @@ async function handleCommand(raw) {
       case 'wait':             result = await cmdWait(cmd);            break
       case 'get-console':      result = await cmdGetConsole(cmd);      break
       case 'get-errors':       result = await cmdGetErrors(cmd);       break
+      case 'detach':           result = await cmdDetach(cmd);          break
+      case 'detach-all':       result = await cmdDetachAll();          break
       default: throw new Error(`Unknown command: ${cmd.type}`)
     }
     await reportResult(cmd.id, result, null)
@@ -691,10 +697,10 @@ async function cmdTabClose({ tabId }) {
 
 // ─── CMD: wait ───────────────────────────────────────────────────────────────
 
-async function cmdWait({ seconds = 1 }) {
-  const ms = Math.min(Math.max(seconds * 1000, 0), 30000)
-  await new Promise(res => setTimeout(res, ms))
-  return { waited: seconds }
+async function cmdWait({ ms = 1000 }) {
+  const safe = Math.min(Math.max(Number(ms), 0), 30000)
+  await new Promise(res => setTimeout(res, safe))
+  return { waited_ms: safe }
 }
 
 // ─── CMD: get-console / get-errors ───────────────────────────────────────────
@@ -713,6 +719,26 @@ async function cmdGetErrors({ tabQuery, clear = false }) {
   const errs = jsErrors.get(tab.id) || []
   if (clear) jsErrors.set(tab.id, [])
   return { tabId: tab.id, errors: errs, count: errs.length }
+}
+
+// ─── CMD: detach ────────────────────────────────────────────────────────────
+
+async function cmdDetach({ tabQuery }) {
+  const tab = await resolveTab(tabQuery)
+  if (attachedTabs.has(tab.id)) {
+    await chrome.debugger.detach({ tabId: tab.id }).catch(() => {})
+    cleanupTab(tab.id)
+  }
+  return { detached: true, tabId: tab.id }
+}
+
+async function cmdDetachAll() {
+  const tabIds = [...attachedTabs]
+  for (const tabId of tabIds) {
+    await chrome.debugger.detach({ tabId }).catch(() => {})
+    cleanupTab(tabId)
+  }
+  return { detached: tabIds.length, tabIds }
 }
 
 // ─── Report ───────────────────────────────────────────────────────────────────

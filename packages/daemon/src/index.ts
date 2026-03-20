@@ -89,6 +89,16 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
+  // ── POST /api/eval  { tabQuery, js }
+  if (method === 'POST' && url === '/api/eval') {
+    if (!requireExtension(res)) return
+    const { tabQuery = {}, js } = await parseBody(req)
+    if (!js) { json(res, 400, { error: 'js required' }); return }
+    try { json(res, 200, { ok: true, data: await bridge.evaluate(tabQuery, js) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
   // ── POST /api/capture  { tabQuery, duration }
   if (method === 'POST' && url === '/api/capture') {
     if (!requireExtension(res)) return
@@ -265,6 +275,23 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (!requireExtension(res)) return
     const { tabQuery, clear = false } = await parseBody(req)
     try { json(res, 200, { ok: true, data: await bridge.getErrors(tabQuery, clear) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/detach  { tabQuery? }
+  if (method === 'POST' && url === '/api/detach') {
+    if (!requireExtension(res)) return
+    const { tabQuery } = await parseBody(req)
+    try { json(res, 200, { ok: true, data: await bridge.detach(tabQuery) }) }
+    catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
+    return
+  }
+
+  // ── POST /api/detach-all
+  if (method === 'POST' && url === '/api/detach-all') {
+    if (!requireExtension(res)) return
+    try { json(res, 200, { ok: true, data: await bridge.detachAll() }) }
     catch (e: any) { json(res, 500, { ok: false, error: e.message }) }
     return
   }

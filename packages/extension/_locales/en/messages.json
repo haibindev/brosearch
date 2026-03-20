@@ -1,0 +1,29 @@
+{
+  "extName": {
+    "message": "Brosearch – Secure Browser Bridge"
+  },
+  "extDescription": {
+    "message": "Securely connects your local development tools to this browser session. All data stays on your machine — no external servers, no tracking, no data collection. Open-source."
+  },
+  "statusReady": {
+    "message": "Ready"
+  },
+  "statusReadyHint": {
+    "message": "All systems connected"
+  },
+  "statusReconnecting": {
+    "message": "Extension reconnecting..."
+  },
+  "statusReconnectingHint": {
+    "message": "Refresh this extension in chrome://extensions"
+  },
+  "statusDaemonOff": {
+    "message": "Daemon not running"
+  },
+  "statusDaemonOffHint": {
+    "message": "Run: node packages/daemon/dist/index.js"
+  },
+  "statusConnecting": {
+    "message": "Connecting..."
+  }
+}
