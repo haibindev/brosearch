@@ -403,6 +403,88 @@ def cmd_detach(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+# ─── daemon ──────────────────────────────────────────────────────────────────
+
+def _find_repo_root() -> Path:
+    """Find the brosearch repo root from the Python package location."""
+    # brosearch/ is directly under repo root
+    pkg_dir = Path(__file__).resolve().parent
+    repo_root = pkg_dir.parent
+    daemon_js = repo_root / 'packages' / 'daemon' / 'dist' / 'index.js'
+    if daemon_js.exists():
+        return repo_root
+    raise FileNotFoundError(
+        f'Daemon not found at {daemon_js}\n'
+        f'Run setup first: cd {repo_root} && npm install && npx tsc (in packages/daemon/)'
+    )
+
+
+def cmd_daemon(args):
+    import subprocess as sp
+    import signal
+
+    repo_root = _find_repo_root()
+    daemon_js = repo_root / 'packages' / 'daemon' / 'dist' / 'index.js'
+
+    if args.stop:
+        # Stop running daemon
+        if sys.platform == 'win32':
+            sp.run('taskkill /F /FI "WINDOWTITLE eq brosearch*" >nul 2>&1', shell=True)
+            # Also try by image name with command line match
+            sp.run(
+                f'wmic process where "CommandLine like \'%daemon%dist%index.js%\'" call terminate >nul 2>&1',
+                shell=True
+            )
+        else:
+            sp.run(['pkill', '-f', 'node.*brosearch.*daemon'], capture_output=True)
+        print('Daemon stopped.')
+        return
+
+    if args.status:
+        from .daemon_client import DaemonClient
+        client = DaemonClient()
+        if client.is_alive():
+            ext = client.extension_connected()
+            print(f'Daemon running at {client.base}')
+            print(f'Extension: {"connected" if ext else "not connected"}')
+        else:
+            print(f'Daemon not running ({client.base})')
+        return
+
+    # Start daemon
+    env = {**os.environ, 'BROSEARCH_HOST': '0.0.0.0'}
+    if args.background:
+        if sys.platform == 'win32':
+            sp.Popen(
+                ['node', str(daemon_js)],
+                env=env, creationflags=sp.CREATE_NO_WINDOW,
+                stdout=sp.DEVNULL, stderr=sp.DEVNULL,
+            )
+        else:
+            sp.Popen(
+                ['node', str(daemon_js)],
+                env=env, start_new_session=True,
+                stdout=sp.DEVNULL, stderr=sp.DEVNULL,
+            )
+        # Wait and verify
+        import time
+        time.sleep(2)
+        from .daemon_client import DaemonClient
+        client = DaemonClient()
+        if client.is_alive():
+            print(f'Daemon started in background (port {os.environ.get("BROSEARCH_PORT", "19824")})')
+        else:
+            print('WARNING: daemon started but health check failed', file=sys.stderr)
+    else:
+        # Foreground — pass through signals
+        print(f'Starting daemon: {daemon_js}', file=sys.stderr)
+        try:
+            proc = sp.Popen(['node', str(daemon_js)], env=env)
+            proc.wait()
+        except KeyboardInterrupt:
+            proc.terminate()
+
+
 # ─── adapters / doctor ───────────────────────────────────────────────────────
 
 def cmd_adapters(_args):
@@ -738,6 +820,11 @@ def main():
     p.add_argument('--tab', help='Tab URL 匹配模式（不指定则断开当前活动标签页）')
     p.add_argument('--all', action='store_true', help='断开所有已连接的标签页')
 
+    p = sub.add_parser('daemon', help='启动/停止/查看 daemon 状态')
+    p.add_argument('--background', '-b', action='store_true', help='后台启动')
+    p.add_argument('--stop', action='store_true', help='停止运行中的 daemon')
+    p.add_argument('--status', action='store_true', help='查看 daemon 状态')
+
     sub.add_parser('adapters')
     sub.add_parser('doctor')
 
@@ -755,6 +842,7 @@ def main():
         'errors':         cmd_errors,
         'wait':           cmd_wait,
         'detach':         cmd_detach,
+        'daemon':         cmd_daemon,
         'adapters':       cmd_adapters,
         'doctor':         cmd_doctor,
     }

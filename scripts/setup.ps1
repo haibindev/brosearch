@@ -1,57 +1,141 @@
-# brosearch one-line setup script (Windows PowerShell)
+# brosearch setup script (Windows PowerShell)
 # Usage: powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
-$ErrorActionPreference = "Stop"
-$ROOT = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-if (-not $ROOT) { $ROOT = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+$ErrorActionPreference = "Continue"
+$ScriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+$ROOT = Split-Path -Parent $ScriptDir
 Set-Location $ROOT
 
 Write-Host "=== brosearch setup ===" -ForegroundColor Cyan
 Write-Host "Root: $ROOT"
 Write-Host ""
 
-# Step 1: Python
-Write-Host "[1/3] Installing Python package..." -ForegroundColor Yellow
-try {
-    pip install -e $ROOT --quiet 2>&1 | Select-Object -Last 1
-    python -m brosearch --help | Out-Null
-    Write-Host "  OK: python -m brosearch works" -ForegroundColor Green
-} catch {
-    Write-Host "  WARNING: pip install failed. Set PYTHONPATH=$ROOT manually." -ForegroundColor Red
+# ── Pre-flight: check dependencies ──────────────────────────────────────────
+Write-Host "Checking dependencies..."
+$missing = 0
+
+# Python
+$pyCmd = $null
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    $pyCmd = "python"
+} elseif (Get-Command python3 -ErrorAction SilentlyContinue) {
+    $pyCmd = "python3"
 }
 
-# Step 2: Node daemon
+if (-not $pyCmd) {
+    Write-Host "  [x] Python not found" -ForegroundColor Red
+    Write-Host "      Install: https://www.python.org/downloads/ (>= 3.10)"
+    $missing++
+} else {
+    $pyVer = & $pyCmd -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null
+    $pyMajor = & $pyCmd -c "import sys; print(sys.version_info.major)" 2>$null
+    $pyMinor = & $pyCmd -c "import sys; print(sys.version_info.minor)" 2>$null
+    if ([int]$pyMajor -lt 3 -or ([int]$pyMajor -eq 3 -and [int]$pyMinor -lt 10)) {
+        Write-Host "  [x] Python $pyVer too old, need >= 3.10" -ForegroundColor Red
+        Write-Host "      Install: https://www.python.org/downloads/"
+        $missing++
+    } else {
+        Write-Host "  [ok] Python $pyVer" -ForegroundColor Green
+    }
+}
+
+# pip
+$pipCmd = $null
+if (Get-Command pip -ErrorAction SilentlyContinue) {
+    $pipCmd = "pip"
+    Write-Host "  [ok] pip" -ForegroundColor Green
+} elseif (Get-Command pip3 -ErrorAction SilentlyContinue) {
+    $pipCmd = "pip3"
+    Write-Host "  [ok] pip3" -ForegroundColor Green
+} else {
+    Write-Host "  [x] pip not found" -ForegroundColor Red
+    Write-Host "      Install: $pyCmd -m ensurepip --upgrade"
+    $missing++
+}
+
+# Node.js
+if (Get-Command node -ErrorAction SilentlyContinue) {
+    $nodeVer = (node -v 2>$null) -replace '^v', ''
+    $nodeMajor = [int]($nodeVer -split '\.')[0]
+    if ($nodeMajor -lt 18) {
+        Write-Host "  [x] Node.js $nodeVer too old, need >= 18" -ForegroundColor Red
+        Write-Host "      Install: https://nodejs.org/"
+        $missing++
+    } else {
+        Write-Host "  [ok] Node.js $nodeVer" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  [x] Node.js not found" -ForegroundColor Red
+    Write-Host "      Install: https://nodejs.org/ (>= 18)"
+    $missing++
+}
+
+# npm
+if (Get-Command npm -ErrorAction SilentlyContinue) {
+    $npmVer = npm -v 2>$null
+    Write-Host "  [ok] npm $npmVer" -ForegroundColor Green
+} else {
+    Write-Host "  [x] npm not found (should come with Node.js)" -ForegroundColor Red
+    $missing++
+}
+
+Write-Host ""
+if ($missing -gt 0) {
+    Write-Host "Setup aborted: missing dependencies. Install them and retry." -ForegroundColor Red
+    exit 1
+}
+
+# ── Step 1: Python package ──────────────────────────────────────────────────
+Write-Host "[1/3] Installing Python package..." -ForegroundColor Yellow
+$pipOut = & $pipCmd install -e $ROOT 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAILED: pip install error:" -ForegroundColor Red
+    Write-Host ($pipOut.Trim() -split "`n" | Select-Object -Last 3 | ForEach-Object { "  $_" }) -ForegroundColor Red
+    exit 1
+}
+& $pyCmd -m brosearch --help 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAILED: 'python -m brosearch' not working after install" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  OK: python -m brosearch works" -ForegroundColor Green
+
+# ── Step 2: Build daemon ────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "[2/3] Building daemon..." -ForegroundColor Yellow
-try {
-    Set-Location "$ROOT\packages\daemon"
-    if (-not (Test-Path "node_modules")) {
-        npm install --silent 2>&1 | Select-Object -Last 1
-    }
-    npx -p typescript tsc 2>&1 | Select-Object -Last 1
-    Write-Host "  OK: daemon built" -ForegroundColor Green
+Set-Location "$ROOT\packages\daemon"
+$npmOut = npm install --silent 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAILED: npm install error" -ForegroundColor Red
     Set-Location $ROOT
-} catch {
-    Write-Host "  WARNING: Node.js not found or build failed." -ForegroundColor Red
-    Write-Host "  Install Node.js >= 18: https://nodejs.org/"
-    Set-Location $ROOT
+    exit 1
 }
+$tscOut = npx -p typescript tsc 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "  FAILED: TypeScript compile error:" -ForegroundColor Red
+    Write-Host ($tscOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red
+    Set-Location $ROOT
+    exit 1
+}
+Write-Host "  OK: daemon built" -ForegroundColor Green
+Set-Location $ROOT
 
-# Step 3: Instructions
+# ── Step 3: Start daemon ────────────────────────────────────────────────────
 Write-Host ""
-Write-Host "[3/3] Chrome extension (manual step)" -ForegroundColor Yellow
+Write-Host "[3/3] Starting daemon..." -ForegroundColor Yellow
+& $pyCmd -m brosearch daemon --stop 2>&1 | Out-Null
+& $pyCmd -m brosearch daemon -b 2>&1
+
+# ── Chrome extension reminder ───────────────────────────────────────────────
+Write-Host ""
+Write-Host "=== Chrome extension (manual step) ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  1. Open chrome://extensions/"
 Write-Host "  2. Enable 'Developer mode' (top-right toggle)"
 Write-Host "  3. Click 'Load unpacked'"
 Write-Host "  4. Select: $ROOT\packages\extension"
 Write-Host ""
-Write-Host "=== Quick start ===" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  # Start daemon"
-Write-Host "  node $ROOT\packages\daemon\dist\index.js"
-Write-Host ""
 Write-Host "  # Verify"
 Write-Host "  python -m brosearch doctor"
 Write-Host ""
-Write-Host "Done!" -ForegroundColor Green
+Write-Host "Setup complete!" -ForegroundColor Green
