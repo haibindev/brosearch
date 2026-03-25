@@ -45,6 +45,9 @@ if command -v pip &>/dev/null; then
 elif command -v pip3 &>/dev/null; then
     PIP=pip3
     echo "  [ok] pip3"
+elif [ -n "$PY" ] && $PY -m pip --version &>/dev/null; then
+    PIP="$PY -m pip"
+    echo "  [ok] $PY -m pip"
 else
     echo "  [x] pip not found" >&2
     echo "      Install: $PY -m ensurepip --upgrade" >&2

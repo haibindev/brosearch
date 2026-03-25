@@ -41,15 +41,26 @@ if (-not $pyCmd) {
 
 # pip
 $pipCmd = $null
+$pipIsModule = $false
 if (Get-Command pip -ErrorAction SilentlyContinue) {
     $pipCmd = "pip"
     Write-Host "  [ok] pip" -ForegroundColor Green
 } elseif (Get-Command pip3 -ErrorAction SilentlyContinue) {
     $pipCmd = "pip3"
     Write-Host "  [ok] pip3" -ForegroundColor Green
+} elseif ($pyCmd) {
+    & $pyCmd -m pip --version 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        $pipCmd = $pyCmd
+        $pipIsModule = $true
+        Write-Host "  [ok] $pyCmd -m pip" -ForegroundColor Green
+    } else {
+        Write-Host "  [x] pip not found" -ForegroundColor Red
+        Write-Host "      Install: $pyCmd -m ensurepip --upgrade"
+        $missing++
+    }
 } else {
     Write-Host "  [x] pip not found" -ForegroundColor Red
-    Write-Host "      Install: $pyCmd -m ensurepip --upgrade"
     $missing++
 }
 
@@ -87,7 +98,11 @@ if ($missing -gt 0) {
 
 # ── Step 1: Python package ──────────────────────────────────────────────────
 Write-Host "[1/3] Installing Python package..." -ForegroundColor Yellow
-$pipOut = & $pipCmd install -e $ROOT 2>&1 | Out-String
+if ($pipIsModule) {
+    $pipOut = & $pipCmd -m pip install -e $ROOT 2>&1 | Out-String
+} else {
+    $pipOut = & $pipCmd install -e $ROOT 2>&1 | Out-String
+}
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: pip install error:" -ForegroundColor Red
     Write-Host ($pipOut.Trim() -split "`n" | Select-Object -Last 3 | ForEach-Object { "  $_" }) -ForegroundColor Red
