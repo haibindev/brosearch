@@ -44,7 +44,7 @@ echo "[3/3] Rebuilding daemon..."
 if command -v node &>/dev/null; then
     cd "$ROOT/packages/daemon"
     npm install --silent 2>&1 | tail -1
-    npx -p typescript tsc 2>&1 | tail -1
+    npx tsc 2>&1 | tail -1
     echo "  OK: daemon rebuilt"
     cd "$ROOT"
 else

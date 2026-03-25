@@ -119,13 +119,14 @@ Write-Host "  OK: python -m brosearch works" -ForegroundColor Green
 Write-Host ""
 Write-Host "[2/3] Building daemon..." -ForegroundColor Yellow
 Set-Location "$ROOT\packages\daemon"
-$npmOut = npm install --silent 2>&1 | Out-String
+$npmOut = npm install 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  FAILED: npm install error" -ForegroundColor Red
+    Write-Host "  FAILED: npm install error:" -ForegroundColor Red
+    Write-Host ($npmOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red
     Set-Location $ROOT
     exit 1
 }
-$tscOut = npx -p typescript tsc 2>&1 | Out-String
+$tscOut = npx tsc 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: TypeScript compile error:" -ForegroundColor Red
     Write-Host ($tscOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red

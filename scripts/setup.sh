@@ -95,8 +95,8 @@ echo "  OK: python -m brosearch works"
 echo ""
 echo "[2/3] Building daemon..."
 cd "$ROOT/packages/daemon"
-npm install --silent 2>&1 | tail -1
-npx -p typescript tsc 2>&1 | tail -1
+npm install 2>&1 | tail -3
+npx tsc 2>&1 | tail -3
 echo "  OK: daemon built"
 cd "$ROOT"
 
