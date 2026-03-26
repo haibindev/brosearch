@@ -95,8 +95,28 @@ echo "  OK: python -m brosearch works"
 echo ""
 echo "[2/3] Building daemon..."
 cd "$ROOT/packages/daemon"
-npm install 2>&1 | tail -3
-npm run build 2>&1 | tail -3
+
+echo "  Running npm install..."
+npm install 2>&1 | sed 's/^/  /'
+if [ $? -ne 0 ]; then
+    echo "  FAILED: npm install error" >&2
+    exit 1
+fi
+
+# Verify typescript installed
+TSC_NODE="$ROOT/packages/daemon/node_modules/typescript/bin/tsc"
+if [ ! -f "$TSC_NODE" ]; then
+    echo "  FAILED: typescript not found in node_modules after npm install" >&2
+    echo "  Try manually: cd packages/daemon && npm install typescript" >&2
+    exit 1
+fi
+
+echo "  Compiling TypeScript..."
+node "$TSC_NODE" 2>&1 | sed 's/^/  /'
+if [ $? -ne 0 ]; then
+    echo "  FAILED: TypeScript compile error" >&2
+    exit 1
+fi
 echo "  OK: daemon built"
 cd "$ROOT"
 

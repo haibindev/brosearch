@@ -119,17 +119,32 @@ Write-Host "  OK: python -m brosearch works" -ForegroundColor Green
 Write-Host ""
 Write-Host "[2/3] Building daemon..." -ForegroundColor Yellow
 Set-Location "$ROOT\packages\daemon"
-$npmOut = npm install 2>&1 | Out-String
+
+# npm install
+Write-Host "  Running npm install..."
+npm install 2>&1 | ForEach-Object { Write-Host "  $_" }
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  FAILED: npm install error:" -ForegroundColor Red
-    Write-Host ($npmOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red
+    Write-Host "  FAILED: npm install error (exit code $LASTEXITCODE)" -ForegroundColor Red
     Set-Location $ROOT
     exit 1
 }
-$tscOut = npm run build 2>&1 | Out-String
+
+# Verify typescript installed
+$tscBin = "$ROOT\packages\daemon\node_modules\.bin\tsc"
+$tscNode = "$ROOT\packages\daemon\node_modules\typescript\bin\tsc"
+if (-not (Test-Path "$ROOT\packages\daemon\node_modules\typescript")) {
+    Write-Host "  FAILED: typescript not found in node_modules after npm install" -ForegroundColor Red
+    Write-Host "  Try manually: cd packages\daemon && npm install typescript" -ForegroundColor Yellow
+    Set-Location $ROOT
+    exit 1
+}
+
+# Compile - use node to call tsc directly (bypasses npx/npm script resolution)
+Write-Host "  Compiling TypeScript..."
+$tscOut = node "$tscNode" 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: TypeScript compile error:" -ForegroundColor Red
-    Write-Host ($tscOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red
+    Write-Host $tscOut -ForegroundColor Red
     Set-Location $ROOT
     exit 1
 }
