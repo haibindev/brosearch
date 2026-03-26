@@ -129,14 +129,16 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Verify typescript installed
-$tscBin = "$ROOT\packages\daemon\node_modules\.bin\tsc"
+# Verify typescript installed, auto-install if missing
 $tscNode = "$ROOT\packages\daemon\node_modules\typescript\bin\tsc"
 if (-not (Test-Path "$ROOT\packages\daemon\node_modules\typescript")) {
-    Write-Host "  FAILED: typescript not found in node_modules after npm install" -ForegroundColor Red
-    Write-Host "  Try manually: cd packages\daemon && npm install typescript" -ForegroundColor Yellow
-    Set-Location $ROOT
-    exit 1
+    Write-Host "  typescript not in node_modules, installing explicitly..." -ForegroundColor Yellow
+    npm install typescript 2>&1 | ForEach-Object { Write-Host "  $_" }
+    if (-not (Test-Path "$ROOT\packages\daemon\node_modules\typescript")) {
+        Write-Host "  FAILED: typescript still not found after explicit install" -ForegroundColor Red
+        Set-Location $ROOT
+        exit 1
+    }
 }
 
 # Compile - use node to call tsc directly (bypasses npx/npm script resolution)

@@ -103,12 +103,15 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Verify typescript installed
+# Verify typescript installed, auto-install if missing
 TSC_NODE="$ROOT/packages/daemon/node_modules/typescript/bin/tsc"
 if [ ! -f "$TSC_NODE" ]; then
-    echo "  FAILED: typescript not found in node_modules after npm install" >&2
-    echo "  Try manually: cd packages/daemon && npm install typescript" >&2
-    exit 1
+    echo "  typescript not in node_modules, installing explicitly..."
+    npm install typescript 2>&1 | sed 's/^/  /'
+    if [ ! -f "$TSC_NODE" ]; then
+        echo "  FAILED: typescript still not found after explicit install" >&2
+        exit 1
+    fi
 fi
 
 echo "  Compiling TypeScript..."
