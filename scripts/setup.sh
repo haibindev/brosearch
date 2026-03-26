@@ -97,7 +97,7 @@ echo "[2/3] Building daemon..."
 cd "$ROOT/packages/daemon"
 
 echo "  Running npm install..."
-npm install 2>&1 | sed 's/^/  /'
+npm install --include=dev 2>&1 | sed 's/^/  /'
 if [ $? -ne 0 ]; then
     echo "  FAILED: npm install error" >&2
     exit 1

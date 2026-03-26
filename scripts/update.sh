@@ -43,7 +43,7 @@ echo ""
 echo "[3/3] Rebuilding daemon..."
 if command -v node &>/dev/null; then
     cd "$ROOT/packages/daemon"
-    npm install --silent 2>&1 | tail -1
+    npm install --include=dev --silent 2>&1 | tail -1
     npm run build 2>&1 | tail -1
     echo "  OK: daemon rebuilt"
     cd "$ROOT"

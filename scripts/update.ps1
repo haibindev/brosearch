@@ -40,7 +40,7 @@ Write-Host ""
 Write-Host "[3/3] Rebuilding daemon..." -ForegroundColor Yellow
 try {
     Set-Location "$ROOT\packages\daemon"
-    npm install --silent 2>&1 | Select-Object -Last 1
+    npm install --include=dev --silent 2>&1 | Select-Object -Last 1
     npm run build 2>&1 | Select-Object -Last 1
     Write-Host "  OK: daemon rebuilt" -ForegroundColor Green
     Set-Location $ROOT

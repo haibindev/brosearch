@@ -122,7 +122,7 @@ Set-Location "$ROOT\packages\daemon"
 
 # npm install
 Write-Host "  Running npm install..."
-npm install 2>&1 | ForEach-Object { Write-Host "  $_" }
+npm install --include=dev 2>&1 | ForEach-Object { Write-Host "  $_" }
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: npm install error (exit code $LASTEXITCODE)" -ForegroundColor Red
     Set-Location $ROOT
