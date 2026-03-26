@@ -126,7 +126,7 @@ if ($LASTEXITCODE -ne 0) {
     Set-Location $ROOT
     exit 1
 }
-$tscOut = npx tsc 2>&1 | Out-String
+$tscOut = npm run build 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: TypeScript compile error:" -ForegroundColor Red
     Write-Host ($tscOut.Trim() -split "`n" | Select-Object -Last 5 | ForEach-Object { "  $_" }) -ForegroundColor Red

@@ -96,7 +96,7 @@ echo ""
 echo "[2/3] Building daemon..."
 cd "$ROOT/packages/daemon"
 npm install 2>&1 | tail -3
-npx tsc 2>&1 | tail -3
+npm run build 2>&1 | tail -3
 echo "  OK: daemon built"
 cd "$ROOT"
 
