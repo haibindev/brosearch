@@ -118,31 +118,33 @@ Write-Host "  OK: python -m brosearch works" -ForegroundColor Green
 # ── Step 2: Build daemon ────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "[2/3] Building daemon..." -ForegroundColor Yellow
-Set-Location "$ROOT\packages\daemon"
 
-# npm install
+# npm install from repo root (workspaces hoist deps to root node_modules)
+Set-Location $ROOT
 Write-Host "  Running npm install..."
 npm install --include=dev 2>&1 | ForEach-Object { Write-Host "  $_" }
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: npm install error (exit code $LASTEXITCODE)" -ForegroundColor Red
-    Set-Location $ROOT
     exit 1
 }
 
-# Verify typescript installed, auto-install if missing
-$tscNode = "$ROOT\packages\daemon\node_modules\typescript\bin\tsc"
-if (-not (Test-Path "$ROOT\packages\daemon\node_modules\typescript")) {
-    Write-Host "  typescript not in node_modules, installing explicitly..." -ForegroundColor Yellow
-    npm install typescript 2>&1 | ForEach-Object { Write-Host "  $_" }
-    if (-not (Test-Path "$ROOT\packages\daemon\node_modules\typescript")) {
-        Write-Host "  FAILED: typescript still not found after explicit install" -ForegroundColor Red
-        Set-Location $ROOT
-        exit 1
-    }
+# Find tsc - workspaces hoist to root, but also check local
+$tscNode = $null
+if (Test-Path "$ROOT\node_modules\typescript\bin\tsc") {
+    $tscNode = "$ROOT\node_modules\typescript\bin\tsc"
+} elseif (Test-Path "$ROOT\packages\daemon\node_modules\typescript\bin\tsc") {
+    $tscNode = "$ROOT\packages\daemon\node_modules\typescript\bin\tsc"
 }
+if (-not $tscNode) {
+    Write-Host "  FAILED: typescript not found in node_modules" -ForegroundColor Red
+    Write-Host "  Try: cd $ROOT && npm install typescript" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "  Found tsc: $tscNode"
 
-# Compile - use node to call tsc directly (bypasses npx/npm script resolution)
+# Compile
 Write-Host "  Compiling TypeScript..."
+Set-Location "$ROOT\packages\daemon"
 $tscOut = node "$tscNode" 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  FAILED: TypeScript compile error:" -ForegroundColor Red

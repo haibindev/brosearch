@@ -94,8 +94,9 @@ echo "  OK: python -m brosearch works"
 # ── Step 2: Build daemon ─────────────────────────────────────────────────────
 echo ""
 echo "[2/3] Building daemon..."
-cd "$ROOT/packages/daemon"
 
+# npm install from repo root (workspaces hoist deps to root node_modules)
+cd "$ROOT"
 echo "  Running npm install..."
 npm install --include=dev 2>&1 | sed 's/^/  /'
 if [ $? -ne 0 ]; then
@@ -103,18 +104,23 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Verify typescript installed, auto-install if missing
-TSC_NODE="$ROOT/packages/daemon/node_modules/typescript/bin/tsc"
-if [ ! -f "$TSC_NODE" ]; then
-    echo "  typescript not in node_modules, installing explicitly..."
-    npm install typescript 2>&1 | sed 's/^/  /'
-    if [ ! -f "$TSC_NODE" ]; then
-        echo "  FAILED: typescript still not found after explicit install" >&2
-        exit 1
-    fi
+# Find tsc - workspaces hoist to root, but also check local
+TSC_NODE=""
+if [ -f "$ROOT/node_modules/typescript/bin/tsc" ]; then
+    TSC_NODE="$ROOT/node_modules/typescript/bin/tsc"
+elif [ -f "$ROOT/packages/daemon/node_modules/typescript/bin/tsc" ]; then
+    TSC_NODE="$ROOT/packages/daemon/node_modules/typescript/bin/tsc"
 fi
+if [ -z "$TSC_NODE" ]; then
+    echo "  FAILED: typescript not found in node_modules" >&2
+    echo "  Try: cd $ROOT && npm install typescript" >&2
+    exit 1
+fi
+echo "  Found tsc: $TSC_NODE"
 
+# Compile (must run from daemon dir for tsconfig.json)
 echo "  Compiling TypeScript..."
+cd "$ROOT/packages/daemon"
 node "$TSC_NODE" 2>&1 | sed 's/^/  /'
 if [ $? -ne 0 ]; then
     echo "  FAILED: TypeScript compile error" >&2
