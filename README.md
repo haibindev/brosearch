@@ -80,8 +80,8 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 #   2. Enable "Developer mode" (top-right)
 #   3. Click "Load unpacked" → select packages/extension/
 
-# Start daemon (keep running)
-scripts\start-daemon.bat
+# Start daemon in background
+python -m brosearch daemon -b
 
 # Verify
 python -m brosearch doctor
@@ -98,8 +98,8 @@ bash scripts/setup.sh
 
 # Load Chrome extension (same manual steps as above)
 
-# Start daemon
-node packages/daemon/dist/index.js &
+# Start daemon in background
+python -m brosearch daemon -b
 
 # Verify
 python -m brosearch doctor
@@ -146,6 +146,7 @@ python -m brosearch doctor
 | `errors [--tab <pattern>] [--clear]` | Read JS exceptions from tab | ✅ |
 | `detach [--tab <pattern>] [--all]` | Detach debugger (removes debug banner) | ✅ |
 | `adapters` | List available adapters | ❌ |
+| `daemon [-b] [--stop] [--status]` | Start/stop/check daemon | ❌ |
 | `doctor` | Check daemon + extension health | ❌ |
 
 ### Examples
@@ -325,7 +326,7 @@ git clone https://github.com/haibindev/brosearch.git
 cd brosearch
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 # 加载 Chrome 扩展：chrome://extensions/ → 开发者模式 → 加载已解压 → packages/extension
-scripts\start-daemon.bat
+python -m brosearch daemon -b   # 后台启动 daemon
 python -m brosearch doctor
 ```
 
@@ -356,6 +357,11 @@ python -m brosearch search "AI agent"
 
 # 移除调试横幅
 python -m brosearch detach --all
+
+# Daemon 管理
+python -m brosearch daemon -b       # 后台启动
+python -m brosearch daemon --status  # 查看状态
+python -m brosearch daemon --stop    # 停止
 ```
 
 **内置 17 个平台，20+ 命令**，包括：知乎/微博/小红书/B站/36kr/掘金/雪球/豆瓣（国内），Twitter/Reddit/GitHub/arXiv/StackOverflow/npm（国外）。
